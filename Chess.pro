@@ -6,6 +6,11 @@
 
 QT       += core gui
 
+greaterThan(QT_MAJOR_VERSION, 4) {
+	# Qt 5
+	QT += widgets
+}
+
 TARGET = Chess
 TEMPLATE = app
 
