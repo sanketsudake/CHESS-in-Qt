@@ -3,7 +3,7 @@ CINES
 CINES is Two player chess created in Qt-cross platform.
 Works fully for two players.
 
-Description:-
+Description
 --------------------------------------------------------------------
 
 CINES is attempt to make traditional chess ,moreover we are planning
@@ -14,7 +14,19 @@ We have tried to perform validation as much as possible,it is possible
 that ,there may some bugs remain. There are some known bugs,
 we are trying to fix them.
 
-Screenshot:-
+Screenshot
 --------------------------------------------------------------
 
 * ![Screenshot](https://github.com/tripples/CHESS-in-Qt/blob/master/screenshot/screenshot.png)
+
+
+Usage
+----------------------------------------------------------------
+Getting started with CINES
+
+```
+$ git clone https://github.com/tripples/CHESS-in-Qt.git
+$ qmake .
+$ make
+$ ./Chess
+```
