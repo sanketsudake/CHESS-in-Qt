@@ -14,6 +14,12 @@ greaterThan(QT_MAJOR_VERSION, 4) {
 TARGET = Chess
 TEMPLATE = app
 
+DESTDIR = build
+
+OBJECTS_DIR = $$DESTDIR/objects
+MOC_DIR = $$DESTDIR/moc
+UI_DIR = $$DESTDIR/ui
+RCC_DIR = $$DESTDIR/qrc
 
 SOURCES += main.cpp\
         mainwindow.cpp \

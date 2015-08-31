@@ -25,8 +25,8 @@ Usage
 Getting started with CINES
 
 ```
-$ git clone https://github.com/tripples/CHESS-in-Qt.git
+$ git clone https://github.com/tripples/CHESS-in-Qt.git; cd CHESS-in-Qt
 $ qmake .
 $ make
-$ ./Chess
+$ ./build/Chess
 ```

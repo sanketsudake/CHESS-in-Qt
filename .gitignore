@@ -1,9 +1,3 @@
-# Intermediate Executables
-*.o
-Chess
-
 # Ignore temporary files generated
+build/*
 Makefile
-moc_mainwindow.cpp
-qrc_Images.cpp
-
