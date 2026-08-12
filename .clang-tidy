@@ -19,12 +19,15 @@ Checks: >
   -readability-identifier-length,
   -readability-magic-numbers,
   -misc-include-cleaner,
-  -modernize-use-designated-initializers
+  -modernize-use-designated-initializers,
+  -misc-no-recursion
 
 # misc-include-cleaner is an include-what-you-use pass. It wants every .cpp to
 # re-include what its own header already provides, which is churn without
 # safety here. modernize-use-designated-initializers is off because Piece's two
 # members have distinct types, so a positional swap will not compile anyway.
+# misc-no-recursion is off because perft walks a game tree, where recursion is
+# the shape of the problem rather than a mistake.
 
 WarningsAsErrors: '*'
 HeaderFilterRegex: 'src/core/include/chess/.*\.hpp$'
