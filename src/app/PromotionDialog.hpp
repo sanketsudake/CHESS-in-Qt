@@ -19,7 +19,7 @@ class PromotionDialog : public QDialog {
     Q_OBJECT
 
 public:
-    PromotionDialog(chess::Color color, const PieceRenderer& renderer, QWidget* parent = nullptr);
+    PromotionDialog(chess::Color color, PieceRenderer& renderer, QWidget* parent = nullptr);
 
     // PieceType::None when the dialog was dismissed.
     [[nodiscard]] chess::PieceType chosenPiece() const { return chosen_; }

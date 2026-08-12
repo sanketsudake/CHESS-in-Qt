@@ -28,14 +28,14 @@ public:
 
     // Null for an empty square, which is not an error: callers ask before they
     // know whether a square holds anything.
-    [[nodiscard]] QSvgRenderer* rendererFor(chess::Piece piece) const;
+    [[nodiscard]] QSvgRenderer* rendererFor(chess::Piece piece);
 
 private:
     [[nodiscard]] static QString resourcePathFor(chess::Piece piece);
 
     // Keyed by piece type and colour packed into one integer, because QHash
     // needs a hashable key and chess::Piece is a plain struct.
-    mutable QHash<int, QSvgRenderer*> renderers_;
+    QHash<int, QSvgRenderer*> renderers_;
 };
 
 } // namespace cines

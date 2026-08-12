@@ -50,7 +50,7 @@ QString PieceRenderer::resourcePathFor(chess::Piece piece)
     return QStringLiteral(":/pieces/%1_%2.svg").arg(base, colour);
 }
 
-QSvgRenderer* PieceRenderer::rendererFor(chess::Piece piece) const
+QSvgRenderer* PieceRenderer::rendererFor(chess::Piece piece)
 {
     if (piece.isEmpty()) {
         return nullptr;
@@ -62,7 +62,7 @@ QSvgRenderer* PieceRenderer::rendererFor(chess::Piece piece) const
         return existing.value();
     }
 
-    auto* renderer = new QSvgRenderer(resourcePathFor(piece), const_cast<PieceRenderer*>(this));
+    auto* renderer = new QSvgRenderer(resourcePathFor(piece), this);
     if (!renderer->isValid()) {
         // A missing or malformed asset. Drop it rather than caching a renderer
         // that would draw nothing on every future lookup.

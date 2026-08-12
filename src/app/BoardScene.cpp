@@ -384,9 +384,6 @@ void BoardScene::updateCheckHighlight()
             continue;
         }
 
-        // Two soft beats and then it settles. A steady colour is missed on a
-        // glance and a fast flash is unpleasant to sit next to.
-        //
         // The effect belongs to the item, so when the highlight is cleared the
         // effect goes with it and the animation stops on a destroyed target
         // rather than writing to freed memory.

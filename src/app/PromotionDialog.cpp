@@ -23,7 +23,7 @@ constexpr int kIconSize = 60;
 // Rasterised at the display's own pixel density rather than at logical size:
 // on a high density screen a 60x60 pixmap would be stretched to 120 device
 // pixels and look soft next to a board that renders from SVG at any scale.
-QIcon iconFor(const PieceRenderer& renderer, chess::Piece piece, qreal pixelRatio)
+QIcon iconFor(PieceRenderer& renderer, chess::Piece piece, qreal pixelRatio)
 {
     QSvgRenderer* svg = renderer.rendererFor(piece);
     if (svg == nullptr) {
@@ -44,7 +44,7 @@ QIcon iconFor(const PieceRenderer& renderer, chess::Piece piece, qreal pixelRati
 
 } // namespace
 
-PromotionDialog::PromotionDialog(chess::Color color, const PieceRenderer& renderer, QWidget* parent)
+PromotionDialog::PromotionDialog(chess::Color color, PieceRenderer& renderer, QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle(tr("Promote pawn"));

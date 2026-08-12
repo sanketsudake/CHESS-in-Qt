@@ -81,7 +81,7 @@ void GameController::selectSquare(chess::Square square)
 
 void GameController::clearSelection()
 {
-    if (!chess::isValid(selected_) && legalTargets_.isEmpty()) {
+    if (!chess::isValid(selected_)) {
         return;
     }
     selected_ = chess::Square::None;
