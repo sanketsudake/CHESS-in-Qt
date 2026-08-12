@@ -1,0 +1,23 @@
+# WebKit style: 4-space indent, opening brace on its own line for functions and
+# on the same line for control statements. Chosen because it is what the new
+# core was written in, so adopting it costs no reformatting churn.
+---
+Language: Cpp
+BasedOnStyle: WebKit
+ColumnLimit: 110
+PointerAlignment: Left
+ReferenceAlignment: Left
+AllowShortFunctionsOnASingleLine: Inline
+AlwaysBreakTemplateDeclarations: Yes
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+SpaceAfterTemplateKeyword: false
+FixNamespaceComments: true
+
+# Overrides of WebKit defaults that do not suit this code base.
+# Braced initialisers are written Piece{} rather than Piece { }, and namespace
+# bodies are not indented -- otherwise every file in an anonymous namespace
+# would carry a level of indentation that means nothing.
+Cpp11BracedListStyle: true
+SpaceBeforeCpp11BracedList: false
+NamespaceIndentation: None

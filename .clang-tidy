@@ -1,0 +1,31 @@
+# Run over src/core only. The checks are chosen to catch the specific failure
+# modes the 2012 code shipped with: raw owning pointers, implicit narrowing,
+# uninitialised members, and identifiers that shadow standard library names.
+---
+Checks: >
+  -*,
+  bugprone-*,
+  cppcoreguidelines-init-variables,
+  cppcoreguidelines-prefer-member-initializer,
+  cppcoreguidelines-pro-type-member-init,
+  cppcoreguidelines-slicing,
+  misc-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  -bugprone-easily-swappable-parameters,
+  -misc-non-private-member-variables-in-classes,
+  -modernize-use-trailing-return-type,
+  -readability-identifier-length,
+  -readability-magic-numbers,
+  -misc-include-cleaner,
+  -modernize-use-designated-initializers
+
+# misc-include-cleaner is an include-what-you-use pass. It wants every .cpp to
+# re-include what its own header already provides, which is churn without
+# safety here. modernize-use-designated-initializers is off because Piece's two
+# members have distinct types, so a positional swap will not compile anyway.
+
+WarningsAsErrors: '*'
+HeaderFilterRegex: 'src/core/include/chess/.*\.hpp$'
+FormatStyle: file
