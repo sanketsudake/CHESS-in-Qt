@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# A new push to the same branch supersedes the run in flight.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a new upstream release cannot turn a green branch red overnight,
+  # and so contributors can reproduce the lint result exactly:
+  #   pip install clang-format==22.1.8 clang-tidy==22.1.8
+  LLVM_TOOLS_VERSION: 22.1.8
+
+jobs:
+  lint:
+    name: Lint (format + tidy)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - name: Install pinned LLVM tools
+        run: pip install "clang-format==${LLVM_TOOLS_VERSION}" "clang-tidy==${LLVM_TOOLS_VERSION}"
+
+      - name: Check formatting
+        run: |
+          clang-format --version
+          clang-format --dry-run --Werror \
+            src/core/include/chess/*.hpp src/core/src/*.cpp tests/*.cpp
+
+      # clang-tidy needs a compilation database, so configure first. Building is
+      # not required -- the CI preset exports compile_commands.json at configure
+      # time. Configure with clang rather than the default gcc so the recorded
+      # flags are ones clang-tidy's own driver understands.
+      - name: Configure for the compilation database
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset ci
+
+      - name: Run clang-tidy over the core
+        run: |
+          clang-tidy --version
+          clang-tidy -p build/ci --quiet src/core/src/*.cpp
+
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-24.04
+          - name: Windows
+            os: windows-latest
+          - name: macOS
+            os: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      # The Ninja generator needs the MSVC environment on the PATH; the action
+      # exports it for every later step in the job.
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - name: Configure
+        run: cmake --preset ci
+
+      # The ci preset sets CINES_WERROR, so any new warning fails here.
+      - name: Build
+        run: cmake --build --preset ci
+
+      - name: Test
+        run: ctest --preset ci
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - name: Install gcovr
+        run: pipx install gcovr
+
+      - name: Build and test with coverage
+        run: |
+          cmake --preset ci-coverage
+          cmake --build --preset ci-coverage
+          ctest --preset ci-coverage
+
+      # Only the rules library is measured. Test code and the fetched
+      # googletest sources would otherwise dominate the number and hide it.
+      - name: Generate report
+        run: |
+          gcovr --root . --filter 'src/core/' \
+            --exclude-unreachable-branches \
+            --print-summary --xml coverage.xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
