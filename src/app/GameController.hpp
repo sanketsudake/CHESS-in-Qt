@@ -61,8 +61,13 @@ public slots:
     void newGame();
 
     // Sets up a position directly, for "paste FEN". Does nothing and returns
-    // false when the text is not a position.
+    // false when the text is not a position, or describes a board that could
+    // not have occurred in a game. See lastPositionError for why.
     bool setPositionFromFen(const QString& text);
+
+    // Why the last setPositionFromFen was refused, for the status bar. Empty
+    // after a successful one.
+    [[nodiscard]] QString lastPositionError() const { return lastPositionError_; }
 
     // A click, or the start of a drag. Selecting an empty square, an enemy
     // piece, or a piece with no legal move clears the selection instead.
@@ -116,6 +121,7 @@ private:
     chess::Game game_;
     chess::Square selected_ = chess::Square::None;
     QList<chess::Square> legalTargets_;
+    QString lastPositionError_;
 
     // Set between promotionRequested and finishPromotion. While it holds a
     // value the board is showing a position the player has already left.

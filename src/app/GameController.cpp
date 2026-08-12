@@ -32,11 +32,27 @@ void GameController::newGame()
 bool GameController::setPositionFromFen(const QString& text)
 {
     chess::fen::ParseResult result = chess::fen::parse(text.trimmed().toStdString());
-    if (std::holds_alternative<chess::fen::ParseError>(result)) {
+    if (const auto* failure = std::get_if<chess::fen::ParseError>(&result)) {
+        lastPositionError_ = QString::fromStdString(failure->message);
         return false;
     }
 
-    game_.reset(std::get<chess::Position>(result));
+    const auto& position = std::get<chess::Position>(result);
+
+    // Parsing proves the record is well formed, not that the board could ever
+    // have occurred. Everything downstream is written for positions that can
+    // occur -- move generation in particular sizes its list for the 218 moves
+    // a real position can offer -- so an impossible board is refused here
+    // rather than played from.
+    const chess::PositionError legality = chess::validatePosition(position);
+    if (legality != chess::PositionError::None) {
+        lastPositionError_ = QString::fromUtf8(
+            chess::describe(legality).data(), static_cast<qsizetype>(chess::describe(legality).size()));
+        return false;
+    }
+
+    lastPositionError_.clear();
+    game_.reset(position);
     pendingPromotion_.reset();
     refreshAfterPositionChange();
     return true;

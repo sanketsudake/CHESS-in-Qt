@@ -236,7 +236,10 @@ void MainWindow::pasteFenFromClipboard()
 {
     const QString text = QApplication::clipboard()->text();
     if (!controller_->setPositionFromFen(text)) {
-        statusBar()->showMessage(tr("Clipboard does not hold a position"), 3000);
+        // Say what was wrong with it. "Does not hold a position" is unhelpful
+        // when the record parsed and was simply not a board that could occur.
+        statusBar()->showMessage(
+            tr("Cannot use that position: %1").arg(controller_->lastPositionError()), 5000);
     }
 }
 

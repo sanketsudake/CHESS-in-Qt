@@ -209,7 +209,7 @@ TEST(GameController, NothingCanBeSelectedOnceTheGameIsOver)
 TEST(GameController, ReportsCheckSoTheBoardCanShowIt)
 {
     GameController controller;
-    ASSERT_TRUE(controller.setPositionFromFen(QStringLiteral("4r3/8/8/8/8/8/8/4K3 w - - 0 1")));
+    ASSERT_TRUE(controller.setPositionFromFen(QStringLiteral("4r3/8/8/8/6k1/8/8/4K3 w - - 0 1")));
 
     EXPECT_TRUE(controller.isInCheck(Color::White));
     EXPECT_FALSE(controller.isInCheck(Color::Black));
@@ -220,7 +220,7 @@ TEST(GameController, StatusTextNamesWhoseTurnItIsAndHowItEnded)
     GameController controller;
     EXPECT_EQ(controller.statusText(), QStringLiteral("White to move"));
 
-    ASSERT_TRUE(controller.setPositionFromFen(QStringLiteral("4r3/8/8/8/8/8/8/4K3 w - - 0 1")));
+    ASSERT_TRUE(controller.setPositionFromFen(QStringLiteral("4r3/8/8/8/6k1/8/8/4K3 w - - 0 1")));
     EXPECT_EQ(controller.statusText(), QStringLiteral("White to move — check"));
 
     ASSERT_TRUE(controller.setPositionFromFen(
@@ -241,6 +241,35 @@ TEST(GameController, RefusesTextThatIsNotAPosition)
     EXPECT_FALSE(controller.setPositionFromFen(QStringLiteral("not a position")));
     EXPECT_FALSE(controller.setPositionFromFen(QString()));
     EXPECT_EQ(controller.position(), chess::Position::starting());
+    EXPECT_FALSE(controller.lastPositionError().isEmpty()) << "and says why";
+}
+
+// A record can parse perfectly and still describe a board that could never
+// have occurred. Everything downstream is written for positions that can
+// occur, so those are refused here rather than played from. Pasting the first
+// of these used to crash the application.
+TEST(GameController, RefusesABoardThatCouldNotHaveOccurred)
+{
+    GameController controller;
+
+    for (const auto* text : {"BQQQQQQQ/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/BQQQQQQB w - - 0 1",
+             "BQQQkQQQ/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/BQQKQQQB w - - 0 1", "4k3/8/8/8/8/8/8/8 w - - 0 1",
+             "4k3/8/8/8/8/8/8/P3K3 w - - 0 1", "4rk2/8/8/8/8/8/8/4K3 b - - 0 1"}) {
+        EXPECT_FALSE(controller.setPositionFromFen(QString::fromUtf8(text))) << text;
+        EXPECT_FALSE(controller.lastPositionError().isEmpty()) << text;
+        EXPECT_EQ(controller.position(), chess::Position::starting()) << "and nothing changed";
+    }
+}
+
+TEST(GameController, ClearsThePositionErrorAfterASuccessfulPaste)
+{
+    GameController controller;
+    ASSERT_FALSE(controller.setPositionFromFen(QStringLiteral("not a position")));
+    ASSERT_FALSE(controller.lastPositionError().isEmpty());
+
+    ASSERT_TRUE(controller.setPositionFromFen(QString::fromUtf8(
+        chess::fen::kStartingPosition.data(), static_cast<qsizetype>(chess::fen::kStartingPosition.size()))));
+    EXPECT_TRUE(controller.lastPositionError().isEmpty());
 }
 
 // Copying a position and pasting it back must give the same board, since that

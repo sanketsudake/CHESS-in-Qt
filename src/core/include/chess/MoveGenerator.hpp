@@ -13,14 +13,34 @@ namespace chess {
 
 // A fixed-capacity list of moves.
 //
-// The most moves any legal chess position offers is 218, so 256 can never
-// overflow. Using storage that cannot allocate keeps perft honest: the
-// measurement is of the rules, not of the allocator.
+// The most moves any *legal* chess position offers is 218, so 256 is ample for
+// any position that can arise in a game. Storage that cannot allocate keeps
+// perft honest: the measurement is of the rules, not of the allocator.
+//
+// "Legal" is doing real work in that sentence. A Position can also be built by
+// hand or read from a FEN record, and FEN validates syntax rather than
+// legality -- a board of sixty-three queens parses perfectly well and offers
+// far more than 256 moves. So the bound is enforced here rather than assumed,
+// because a caller cannot be trusted to have supplied a reachable position.
 class MoveList {
 public:
     static constexpr std::size_t kCapacity = 256;
 
-    void push(Move move) { moves_[size_++] = move; }
+    // Silently ignores anything past capacity. Only a position that could
+    // never occur in a game can reach that point, and quietly generating fewer
+    // moves for an impossible board is much better than writing past the end
+    // of the array -- which lands on size_ itself and turns the next push into
+    // a write at an arbitrary offset.
+    //
+    // Callers that care whether a position is real should ask
+    // validatePosition; see Rules.hpp.
+    void push(Move move)
+    {
+        if (size_ >= kCapacity) {
+            return;
+        }
+        moves_[size_++] = move;
+    }
 
     [[nodiscard]] std::size_t size() const { return size_; }
     [[nodiscard]] bool empty() const { return size_ == 0; }

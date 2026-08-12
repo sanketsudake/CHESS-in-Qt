@@ -69,6 +69,10 @@ struct MaterialCount {
 
     [[nodiscard]] int minors() const { return knights + bishops; }
     [[nodiscard]] bool hasMatingMaterialOnItsOwn() const { return pawns > 0 || rooks > 0 || queens > 0; }
+
+    // Everything except the king, which is counted separately because a
+    // position can have the wrong number of those.
+    [[nodiscard]] int total() const { return pawns + knights + bishops + rooks + queens; }
 };
 
 MaterialCount countMaterial(const Board& board, Color color)
@@ -179,6 +183,71 @@ TerminalReason terminalReason(const Position& position)
         return TerminalReason::FiftyMoveRule;
     }
     return TerminalReason::None;
+}
+
+PositionError validatePosition(const Position& position)
+{
+    const Board& board = position.board;
+
+    for (const Color color : {Color::White, Color::Black}) {
+        int kings = 0;
+        for (int i = 0; i < kSquareCount; ++i) {
+            const Piece piece = board.pieceAt(static_cast<Square>(i));
+            if (piece.type == PieceType::King && piece.color == color) {
+                ++kings;
+            }
+        }
+        if (kings == 0) {
+            return PositionError::MissingKing;
+        }
+        if (kings > 1) {
+            return PositionError::TooManyKings;
+        }
+
+        const MaterialCount material = countMaterial(board, color);
+        // Sixteen pieces a side including the king, and eight of those pawns.
+        // Promotions can turn pawns into pieces but never add to the total.
+        if (material.total() + 1 > 16 || material.pawns > kBoardSize) {
+            return PositionError::TooManyPieces;
+        }
+    }
+
+    // A pawn cannot be on the rank it would have promoted from, nor on the one
+    // it started behind.
+    for (int file = 0; file < kBoardSize; ++file) {
+        for (const int rank : {0, kBoardSize - 1}) {
+            if (board.pieceAt(makeSquare(file, rank)).type == PieceType::Pawn) {
+                return PositionError::PawnOnBackRank;
+            }
+        }
+    }
+
+    // If the side that just moved left its own king attacked, the move that
+    // produced this position was itself illegal.
+    if (isInCheck(position, opposite(position.sideToMove))) {
+        return PositionError::OpponentAlreadyInCheck;
+    }
+
+    return PositionError::None;
+}
+
+std::string_view describe(PositionError error)
+{
+    switch (error) {
+    case PositionError::None:
+        return "the position is legal";
+    case PositionError::MissingKing:
+        return "each side needs a king";
+    case PositionError::TooManyKings:
+        return "a side has more than one king";
+    case PositionError::PawnOnBackRank:
+        return "a pawn cannot stand on the first or eighth rank";
+    case PositionError::TooManyPieces:
+        return "a side has more pieces than it could ever have";
+    case PositionError::OpponentAlreadyInCheck:
+        return "the side that just moved left its own king in check";
+    }
+    return "the position is not legal";
 }
 
 Outcome outcomeFor(TerminalReason reason, Color sideToMove)

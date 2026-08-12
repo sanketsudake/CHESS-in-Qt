@@ -4,6 +4,7 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
 #include <string_view>
 
 namespace chess {
@@ -189,6 +190,99 @@ TEST(Outcome, CheckmateLosesForWhoeverIsToMove)
 {
     EXPECT_EQ(outcomeFor(TerminalReason::Checkmate, Color::White), Outcome::BlackWins);
     EXPECT_EQ(outcomeFor(TerminalReason::Checkmate, Color::Black), Outcome::WhiteWins);
+}
+
+// A FEN record can be perfectly well formed and describe a board that could
+// never have occurred. Move generation sizes its list for the 218 moves a real
+// position can offer, so a board of sixty-three queens used to write past the
+// end of that list -- landing on the size field itself and turning the next
+// push into a write at an arbitrary offset. Pasting one crashed the
+// application.
+TEST(MoveGeneration, AnImpossibleBoardCannotOverflowTheMoveList)
+{
+    const Position absurd = mustParse("BQQQQQQQ/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/BQQQQQQB w - - 0 1");
+
+    const MoveList pseudoLegal = generatePseudoLegalMoves(absurd);
+    EXPECT_LE(pseudoLegal.size(), MoveList::kCapacity);
+
+    const MoveList legal = generateLegalMoves(absurd);
+    EXPECT_LE(legal.size(), MoveList::kCapacity);
+
+    // The point is that it returns at all rather than corrupting the stack.
+    EXPECT_NO_FATAL_FAILURE((void)terminalReason(absurd));
+}
+
+TEST(MoveGeneration, ARealPositionIsNowhereNearTheCapacity)
+{
+    // The most crowded of the standard perft positions, well under the bound.
+    const Position kiwipete
+        = mustParse("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1");
+    EXPECT_LT(generateLegalMoves(kiwipete).size(), MoveList::kCapacity / 2);
+}
+
+TEST(ValidatePosition, AcceptsPositionsThatCouldOccur)
+{
+    EXPECT_EQ(validatePosition(Position::starting()), PositionError::None);
+
+    for (const std::string_view text :
+        {"r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+            "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+            "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+            "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10"}) {
+        EXPECT_EQ(validatePosition(mustParse(text)), PositionError::None) << text;
+    }
+}
+
+TEST(ValidatePosition, RejectsTheBoardThatOverflowedTheMoveList)
+{
+    EXPECT_EQ(validatePosition(mustParse("BQQQQQQQ/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/BQQQQQQB w - - 0 1")),
+        PositionError::MissingKing);
+
+    // Even with a king each it is still impossible, and still rejected.
+    EXPECT_NE(validatePosition(mustParse("BQQQkQQQ/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/Q6Q/BQQKQQQB w - - 0 1")),
+        PositionError::None);
+}
+
+TEST(ValidatePosition, RequiresExactlyOneKingEachSide)
+{
+    EXPECT_EQ(validatePosition(mustParse("4k3/8/8/8/8/8/8/8 w - - 0 1")), PositionError::MissingKing);
+    EXPECT_EQ(validatePosition(mustParse("8/8/8/8/8/8/8/4K3 w - - 0 1")), PositionError::MissingKing);
+    EXPECT_EQ(validatePosition(mustParse("4k3/8/8/8/8/8/8/K3K3 w - - 0 1")), PositionError::TooManyKings);
+}
+
+TEST(ValidatePosition, RejectsPawnsOnTheBackRanks)
+{
+    EXPECT_EQ(validatePosition(mustParse("4k3/8/8/8/8/8/8/P3K3 w - - 0 1")), PositionError::PawnOnBackRank);
+    EXPECT_EQ(validatePosition(mustParse("p3k3/8/8/8/8/8/8/4K3 w - - 0 1")), PositionError::PawnOnBackRank);
+}
+
+TEST(ValidatePosition, RejectsMorePiecesThanASideCouldHave)
+{
+    EXPECT_EQ(validatePosition(mustParse("4k3/8/8/QQQQQQQQ/QQQQQQQQ/QQQ5/8/4K3 w - - 0 1")),
+        PositionError::TooManyPieces);
+    EXPECT_EQ(validatePosition(mustParse("4k3/pppppppp/pppppppp/8/8/8/8/4K3 w - - 0 1")),
+        PositionError::TooManyPieces);
+}
+
+// If the side that just moved left its own king attacked, the move that
+// produced this position was itself illegal.
+TEST(ValidatePosition, RejectsAPositionWhereTheSideNotToMoveIsInCheck)
+{
+    EXPECT_EQ(
+        validatePosition(mustParse("4rk2/8/8/8/8/8/8/4K3 b - - 0 1")), PositionError::OpponentAlreadyInCheck);
+
+    // The same board with White to move is an ordinary check.
+    EXPECT_EQ(validatePosition(mustParse("4rk2/8/8/8/8/8/8/4K3 w - - 0 1")), PositionError::None);
+}
+
+TEST(ValidatePosition, EveryErrorHasSomethingToSay)
+{
+    for (const PositionError error : {PositionError::None, PositionError::MissingKing,
+             PositionError::TooManyKings, PositionError::PawnOnBackRank, PositionError::TooManyPieces,
+             PositionError::OpponentAlreadyInCheck}) {
+        EXPECT_FALSE(describe(error).empty());
+    }
 }
 
 TEST(Outcome, EveryOtherTerminalReasonIsADraw)
