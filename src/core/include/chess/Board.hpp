@@ -3,6 +3,7 @@
 #include "chess/Types.hpp"
 
 #include <array>
+#include <cassert>
 
 namespace chess {
 
@@ -15,9 +16,22 @@ class Board {
 public:
     Board() = default;
 
-    [[nodiscard]] Piece pieceAt(Square s) const { return squares_[static_cast<std::size_t>(index(s))]; }
+    // Square::None indexes at -1, which as an unsigned subscript reads or
+    // writes far outside the array. Several things legitimately produce
+    // Square::None -- makeSquare off the edge of the board, kingSquare with no
+    // king, an absent en passant target -- so callers must reject it before
+    // asking about a square, and this asserts that they did.
+    [[nodiscard]] Piece pieceAt(Square s) const
+    {
+        assert(isValid(s));
+        return squares_[static_cast<std::size_t>(index(s))];
+    }
 
-    void setPiece(Square s, Piece piece) { squares_[static_cast<std::size_t>(index(s))] = piece; }
+    void setPiece(Square s, Piece piece)
+    {
+        assert(isValid(s));
+        squares_[static_cast<std::size_t>(index(s))] = piece;
+    }
 
     void clearSquare(Square s) { setPiece(s, Piece{}); }
 

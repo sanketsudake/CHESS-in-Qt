@@ -2,7 +2,7 @@
   "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 21,
+    "minor": 25,
     "patch": 0
   },
   "configurePresets": [
@@ -44,6 +44,17 @@
       }
     },
     {
+      "name": "ci-asan",
+      "inherits": "base",
+      "displayName": "CI sanitizers (address + undefined behaviour)",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CINES_BUILD_TESTS": "ON",
+        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all",
+        "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined"
+      }
+    },
+    {
       "name": "ci-coverage",
       "inherits": "base",
       "displayName": "CI coverage (Debug + gcov instrumentation)",
@@ -59,6 +70,7 @@
     { "name": "dev", "configurePreset": "dev" },
     { "name": "release", "configurePreset": "release" },
     { "name": "ci", "configurePreset": "ci" },
+    { "name": "ci-asan", "configurePreset": "ci-asan" },
     { "name": "ci-coverage", "configurePreset": "ci-coverage" }
   ],
   "testPresets": [
@@ -74,9 +86,16 @@
       "execution": { "noTestsAction": "error" }
     },
     {
+      "name": "ci-asan",
+      "configurePreset": "ci-asan",
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
+    },
+    {
       "name": "ci-coverage",
       "configurePreset": "ci-coverage",
-      "output": { "outputOnFailure": true }
+      "output": { "outputOnFailure": true },
+      "execution": { "noTestsAction": "error" }
     }
   ]
 }

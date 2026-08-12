@@ -28,6 +28,11 @@ std::optional<Move> Move::fromUci(std::string_view text)
     if (!from || !to) {
         return std::nullopt;
     }
+    // No piece may move to where it already stands. UCI writes the null move
+    // as "0000", which is not a square pair and is rejected above.
+    if (*from == *to) {
+        return std::nullopt;
+    }
 
     Move move;
     move.from = *from;

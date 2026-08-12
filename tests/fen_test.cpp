@@ -147,6 +147,57 @@ TEST(Fen, ToleratesRepeatedSpacesBetweenFields)
         mustParse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR  w   KQkq  -  0  1"), Position::starting());
 }
 
+// A record read from a file, an .epd suite or the clipboard arrives with a
+// trailing newline. Splitting on spaces alone would fold it into the last
+// field and reject the whole thing.
+TEST(Fen, ToleratesTabsAndTrailingNewlines)
+{
+    EXPECT_EQ(mustParse(std::string(kStartPosition) + "\n"), Position::starting());
+    EXPECT_EQ(mustParse(std::string(kStartPosition) + "\r\n"), Position::starting());
+    EXPECT_EQ(mustParse("\n  " + std::string(kStartPosition) + "  \n"), Position::starting());
+    EXPECT_EQ(
+        mustParse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR\tw\tKQkq\t-\t0\t1"), Position::starting());
+}
+
+// Five fields means the halfmove clock is present and the fullmove number is
+// not, which sits between the two cases the other tests cover.
+TEST(Fen, AcceptsFiveFields)
+{
+    const Position position = mustParse("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 7");
+    EXPECT_EQ(position.halfmoveClock, 7);
+    EXPECT_EQ(position.fullmoveNumber, 1);
+}
+
+TEST(Fen, RejectsCountersTooLargeForTheType)
+{
+    EXPECT_FALSE(parseErrorFor("8/8/8/8/8/8/8/K6k w - - 99999999999 1").empty());
+    EXPECT_FALSE(parseErrorFor("8/8/8/8/8/8/8/K6k w - - 0 99999999999").empty());
+}
+
+// Every other round-trip test uses a position with no en passant target, so
+// this is the one that exercises that field of serialise.
+TEST(Fen, RoundTripsAPositionWithAnEnPassantTarget)
+{
+    constexpr std::string_view afterE4 = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1";
+    const Position position = mustParse(afterE4);
+    EXPECT_EQ(position.enPassantTarget, Square::E3);
+    EXPECT_EQ(fen::serialise(position), afterE4);
+    EXPECT_EQ(mustParse(fen::serialise(position)), position);
+}
+
+// A Position built by hand can hold an en passant target that no double pawn
+// push could have produced. parse refuses such a record, so serialise must not
+// write one, or the two would disagree about what a valid position is.
+TEST(Fen, WritesNoEnPassantTargetWhenItContradictsTheSideToMove)
+{
+    Position position = Position::starting();
+    position.enPassantTarget = Square::E3; // White to move: only e6 could be right.
+
+    const std::string text = fen::serialise(position);
+    EXPECT_EQ(text, kStartPosition);
+    EXPECT_TRUE(std::holds_alternative<Position>(fen::parse(text)));
+}
+
 TEST(Fen, RejectsTooFewFields)
 {
     EXPECT_FALSE(parseErrorFor("").empty());

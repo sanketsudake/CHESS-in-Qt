@@ -1,4 +1,6 @@
-cmake_minimum_required(VERSION 3.21)
+# 3.25 is required for FetchContent_Declare(... SYSTEM) in tests/CMakeLists.txt,
+# which is what keeps googletest's warnings out of our build log.
+cmake_minimum_required(VERSION 3.25)
 
 # The version is normally injected by CI from the git tag (-DCINES_VERSION=1.2.3).
 # The fallback keeps local configure working on a fresh clone.

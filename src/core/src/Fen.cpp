@@ -14,16 +14,21 @@ ParseError error(std::string message)
     return ParseError{std::move(message)};
 }
 
+// Newlines count. A FEN read from a file, an .epd suite or the clipboard
+// arrives with a trailing newline, and splitting on spaces alone would fold it
+// into the last field and reject the whole record.
+constexpr std::string_view kWhitespace = " \t\n\r\v\f";
+
 std::vector<std::string_view> splitOnWhitespace(std::string_view text)
 {
     std::vector<std::string_view> fields;
     std::size_t pos = 0;
     while (pos < text.size()) {
-        const std::size_t start = text.find_first_not_of(" \t", pos);
+        const std::size_t start = text.find_first_not_of(kWhitespace, pos);
         if (start == std::string_view::npos) {
             break;
         }
-        std::size_t end = text.find_first_of(" \t", start);
+        std::size_t end = text.find_first_of(kWhitespace, start);
         if (end == std::string_view::npos) {
             end = text.size();
         }
@@ -256,8 +261,16 @@ std::string serialise(const Position& position)
         }
     }
 
+    // parse rejects an en passant target on a rank no double pawn push could
+    // have left it on. Writing such a target would produce a record this very
+    // parser refuses, so a Position built by hand with an inconsistent target
+    // is written as having none rather than as something unreadable.
+    const Rank pushedOnto = position.sideToMove == Color::White ? Rank::R6 : Rank::R3;
+    const bool targetIsCoherent
+        = isValid(position.enPassantTarget) && rankOf(position.enPassantTarget) == pushedOnto;
+
     text += ' ';
-    text += toString(position.enPassantTarget);
+    text += targetIsCoherent ? toString(position.enPassantTarget) : "-";
     text += ' ';
     text += std::to_string(position.halfmoveClock);
     text += ' ';

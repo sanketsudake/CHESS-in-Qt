@@ -38,6 +38,14 @@ TEST(Move, UciRejectsPromotionToPawnOrKing)
     EXPECT_FALSE(Move::fromUci("e7e8k").has_value());
 }
 
+// No piece may move to where it already stands, so "e2e2" names nothing.
+TEST(Move, UciRejectsAMoveThatGoesNowhere)
+{
+    EXPECT_FALSE(Move::fromUci("e2e2").has_value());
+    EXPECT_FALSE(Move::fromUci("a1a1").has_value());
+    EXPECT_FALSE(Move::fromUci("0000").has_value()) << "UCI's null move is not a move we can play";
+}
+
 TEST(Move, UciRejectsMalformedInput)
 {
     EXPECT_FALSE(Move::fromUci("").has_value());
