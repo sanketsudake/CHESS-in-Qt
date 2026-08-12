@@ -89,18 +89,21 @@ if(APPLE)
     MACOSX_BUNDLE_COPYRIGHT "GPL-3.0-or-later"
   )
 
+  # No if(EXISTS) guard: the icon is committed, and a rename should fail the
+  # configure rather than quietly produce a release build with no icon.
   set(cines_icns "${CMAKE_SOURCE_DIR}/packaging/cines.icns")
-  if(EXISTS "${cines_icns}")
-    target_sources(cines PRIVATE "${cines_icns}")
-    set_source_files_properties("${cines_icns}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
-  endif()
+  target_sources(cines PRIVATE "${cines_icns}")
+  set_source_files_properties("${cines_icns}" PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 
 elseif(WIN32)
   set_target_properties(cines PROPERTIES WIN32_EXECUTABLE TRUE)
-  set(cines_rc "${CMAKE_SOURCE_DIR}/packaging/cines.rc")
-  if(EXISTS "${cines_rc}")
-    target_sources(cines PRIVATE "${cines_rc}")
-  endif()
+
+  # Generated rather than committed, so the version in the executable's
+  # properties is the version CMake was given. The comment in the template
+  # used to claim this happened; now it does.
+  string(REPLACE "." "," CINES_VERSION_COMMAS "${PROJECT_VERSION},0")
+  configure_file("${CMAKE_SOURCE_DIR}/packaging/cines.rc.in" "${CMAKE_CURRENT_BINARY_DIR}/cines.rc" @ONLY)
+  target_sources(cines PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/cines.rc")
 
 else()
   include(GNUInstallDirs)

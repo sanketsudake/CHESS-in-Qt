@@ -58,58 +58,31 @@ bool isAttackedByPawn(const Board& board, Square origin, Color attacker)
     return false;
 }
 
-struct MaterialCount {
-    int pawns = 0;
-    int knights = 0;
-    int bishops = 0;
-    int rooks = 0;
-    int queens = 0;
-    int lightSquareBishops = 0;
-    int darkSquareBishops = 0;
+} // namespace
 
-    [[nodiscard]] int minors() const { return knights + bishops; }
-    [[nodiscard]] bool hasMatingMaterialOnItsOwn() const { return pawns > 0 || rooks > 0 || queens > 0; }
-
-    // Everything except the king, which is counted separately because a
-    // position can have the wrong number of those.
-    [[nodiscard]] int total() const { return pawns + knights + bishops + rooks + queens; }
-};
-
-MaterialCount countMaterial(const Board& board, Color color)
+int Material::total() const
 {
-    MaterialCount count;
+    return of(PieceType::Pawn) + of(PieceType::Knight) + of(PieceType::Bishop) + of(PieceType::Rook)
+        + of(PieceType::Queen);
+}
+
+Material countMaterial(const Board& board, Color color)
+{
+    Material material;
     for (int i = 0; i < kSquareCount; ++i) {
         const auto square = static_cast<Square>(i);
         const Piece piece = board.pieceAt(square);
         if (piece.isEmpty() || piece.color != color) {
             continue;
         }
-        switch (piece.type) {
-        case PieceType::Pawn:
-            ++count.pawns;
-            break;
-        case PieceType::Knight:
-            ++count.knights;
-            break;
-        case PieceType::Bishop:
-            ++count.bishops;
-            (geometry::isLightSquare(square) ? count.lightSquareBishops : count.darkSquareBishops)++;
-            break;
-        case PieceType::Rook:
-            ++count.rooks;
-            break;
-        case PieceType::Queen:
-            ++count.queens;
-            break;
-        case PieceType::King:
-        case PieceType::None:
-            break;
+
+        ++material.counts[static_cast<std::size_t>(piece.type)];
+        if (piece.type == PieceType::Bishop) {
+            (isLightSquare(square) ? material.lightSquareBishops : material.darkSquareBishops)++;
         }
     }
-    return count;
+    return material;
 }
-
-} // namespace
 
 bool isSquareAttacked(const Board& board, Square square, Color attacker)
 {
@@ -141,10 +114,15 @@ bool isInCheck(const Position& position)
 
 bool hasInsufficientMaterial(const Position& position)
 {
-    const MaterialCount white = countMaterial(position.board, Color::White);
-    const MaterialCount black = countMaterial(position.board, Color::Black);
+    const Material white = countMaterial(position.board, Color::White);
+    const Material black = countMaterial(position.board, Color::Black);
 
-    if (white.hasMatingMaterialOnItsOwn() || black.hasMatingMaterialOnItsOwn()) {
+    // A pawn, rook or queen can force mate on its own, so the position is
+    // still playable whatever else is on the board.
+    const auto canMateAlone = [](const Material& side) {
+        return side.of(PieceType::Pawn) > 0 || side.of(PieceType::Rook) > 0 || side.of(PieceType::Queen) > 0;
+    };
+    if (canMateAlone(white) || canMateAlone(black)) {
         return false;
     }
 
@@ -158,7 +136,7 @@ bool hasInsufficientMaterial(const Position& position)
 
     // King and bishop against king and bishop, both bishops on the same colour
     // of square: they can never attack the same squares, so mate is impossible.
-    if (minors == 2 && white.bishops == 1 && black.bishops == 1) {
+    if (minors == 2 && white.of(PieceType::Bishop) == 1 && black.of(PieceType::Bishop) == 1) {
         const bool bothLight = white.lightSquareBishops == 1 && black.lightSquareBishops == 1;
         const bool bothDark = white.darkSquareBishops == 1 && black.darkSquareBishops == 1;
         return bothLight || bothDark;
@@ -204,10 +182,10 @@ PositionError validatePosition(const Position& position)
             return PositionError::TooManyKings;
         }
 
-        const MaterialCount material = countMaterial(board, color);
+        const Material material = countMaterial(board, color);
         // Sixteen pieces a side including the king, and eight of those pawns.
         // Promotions can turn pawns into pieces but never add to the total.
-        if (material.total() + 1 > 16 || material.pawns > kBoardSize) {
+        if (material.total() + 1 > 16 || material.of(PieceType::Pawn) > kBoardSize) {
             return PositionError::TooManyPieces;
         }
     }

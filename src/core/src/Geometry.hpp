@@ -68,11 +68,4 @@ struct Movement {
         static_cast<int>(fileOf(square)) + offset.file, static_cast<int>(rankOf(square)) + offset.rank);
 }
 
-// Light or dark square, which is what decides whether two bishops can ever
-// meet and so whether a bishop endgame is a dead draw.
-[[nodiscard]] constexpr bool isLightSquare(Square square)
-{
-    return ((static_cast<int>(fileOf(square)) + static_cast<int>(rankOf(square))) % 2) != 0;
-}
-
 } // namespace chess::geometry

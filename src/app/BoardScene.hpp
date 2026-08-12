@@ -41,6 +41,11 @@ public:
     void setFlipped(bool flipped);
     [[nodiscard]] bool isFlipped() const { return flipped_; }
 
+    // The one renderer for the whole application. Every piece drawn anywhere
+    // -- the board, the captured trays, the promotion dialog -- comes through
+    // it, so the twelve SVGs are parsed once rather than once per owner.
+    [[nodiscard]] PieceRenderer& renderer() const { return *renderer_; }
+
     // The piece currently drawn on a square, or null. The view uses this to
     // pick a piece up for dragging.
     [[nodiscard]] QGraphicsSvgItem* pieceItemAt(chess::Square square) const;
@@ -80,9 +85,11 @@ private:
     void updateCoordinates();
     void updateLastMoveHighlight();
     void updateCheckHighlight();
+    void clearLayer(QList<QGraphicsItem*>& items);
+    // Everything that depends on the theme but not on where the pieces are.
+    void redrawBoardDecoration();
     void runPendingAnimation();
     void slideItemFrom(QGraphicsItem* item, const QPointF& offset);
-    [[nodiscard]] static bool isLightSquare(chess::Square square);
 
     GameController& controller_;
     PieceRenderer* renderer_;
@@ -93,18 +100,23 @@ private:
     QHash<int, QGraphicsSvgItem*> pieceItems_;
     QList<QGraphicsSimpleTextItem*> coordinateItems_;
 
-    // Highlight layers, kept separately so each can be cleared without
-    // disturbing the others.
+    // Two layers, not three. The selection changes on its own as the player
+    // picks pieces up, but the last move and the check marker only ever change
+    // together with the position, so they share a list cleared in one place.
     QList<QGraphicsItem*> selectionItems_;
-    QList<QGraphicsItem*> lastMoveItems_;
-    QList<QGraphicsItem*> checkItems_;
+    QList<QGraphicsItem*> positionHighlights_;
 
     QGraphicsSvgItem* liftedItem_ = nullptr;
     chess::Square liftedFrom_ = chess::Square::None;
 
     // The move to animate on the next rebuild, and which way round to play it.
-    std::optional<chess::Move> pendingAnimation_;
-    bool pendingAnimationIsUndo_ = false;
+    // One value rather than a move plus a separate flag: resetting the optional
+    // cannot then leave a stale direction behind.
+    struct PendingAnimation {
+        chess::Move move;
+        bool isUndo;
+    };
+    std::optional<PendingAnimation> pendingAnimation_;
     bool animationEnabled_ = true;
 };
 

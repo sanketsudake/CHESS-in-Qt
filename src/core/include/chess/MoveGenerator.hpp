@@ -66,6 +66,15 @@ public:
         return find(from, to, promotion).has_value();
     }
 
+    // Any move between these two squares, whatever it promotes to.
+    //
+    // find() needs the promotion piece named, so it reports nothing for a
+    // promoting push -- which leaves a caller that only knows two squares
+    // guessing a piece to probe with, and guessing is how a rule of chess ends
+    // up written down in the user interface. This answers the question a click
+    // actually asks: is there a move here, and does it need a choice made?
+    [[nodiscard]] std::optional<Move> findAnyBetween(Square from, Square to) const;
+
 private:
     std::array<Move, kCapacity> moves_{};
     std::size_t size_ = 0;

@@ -47,11 +47,7 @@ void revokeRightsTouching(CastlingRights& rights, Square square)
     }
 }
 
-// The rook's own from and to squares for a castle, given where the king lands.
-struct RookTravel {
-    Square from;
-    Square to;
-};
+} // namespace
 
 RookTravel rookTravelFor(Color mover, MoveKind kind)
 {
@@ -61,8 +57,6 @@ RookTravel rookTravelFor(Color mover, MoveKind kind)
     }
     return {makeSquare(0, backRank), makeSquare(3, backRank)};
 }
-
-} // namespace
 
 Position applyMove(const Position& position, const Move& move)
 {

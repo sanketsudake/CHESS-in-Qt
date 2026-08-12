@@ -43,6 +43,11 @@ private:
     [[nodiscard]] chess::Square squareUnder(const QPoint& viewPosition) const;
     void fitBoard();
 
+    // Whether a piece is currently being dragged. Asked of the scene rather
+    // than mirrored in a member: the scene owns the lifted item, and a copy of
+    // that fact here could only ever be a second thing to keep in step.
+    [[nodiscard]] bool isDragging() const;
+
     GameController& controller_;
     BoardScene& boardScene_;
 
@@ -54,8 +59,6 @@ private:
     // measured from here: measuring from the square's centre instead would
     // mean any press away from dead centre already exceeded the threshold.
     QPoint pressedAt_;
-
-    bool dragging_ = false;
 };
 
 } // namespace cines

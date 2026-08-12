@@ -102,6 +102,19 @@ struct Position {
     return c == Color::White ? Square::E1 : Square::E8;
 }
 
+// Where the rook starts and ends in a castle. A castle moves two pieces, and
+// anything that has to show or undo one needs both.
+struct RookTravel {
+    Square from;
+    Square to;
+};
+
+// The rook's half of a castle. Public because applying the move is not the
+// only thing that needs it -- a board animating a castle has to slide the rook
+// too, and re-deriving these squares in the drawing code would be a rule of
+// chess written down twice.
+[[nodiscard]] RookTravel rookTravelFor(Color mover, MoveKind kind);
+
 // Applies a move and returns the resulting position. Pure: the input is not
 // modified, which is what lets the legality filter try a move and throw the
 // result away, and what lets Game keep a history by value.

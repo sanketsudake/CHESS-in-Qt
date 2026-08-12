@@ -96,6 +96,17 @@ inline constexpr int kSquareCount = 64;
     return static_cast<Square>((rank * kBoardSize) + file);
 }
 
+// Light or dark square. a1 is dark, which fixes the whole board.
+//
+// This decides how the board is painted and whether two bishops can ever meet,
+// so it is stated once here rather than separately in the rules and in the
+// drawing code -- the two disagreeing would be a bug nobody would think to
+// look for.
+[[nodiscard]] constexpr bool isLightSquare(Square s) noexcept
+{
+    return ((static_cast<int>(fileOf(s)) + static_cast<int>(rankOf(s))) % 2) != 0;
+}
+
 // The rank a pawn of this colour starts on, and the rank it promotes on.
 [[nodiscard]] constexpr Rank pawnStartRank(Color c) noexcept
 {

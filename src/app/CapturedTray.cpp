@@ -3,6 +3,8 @@
 #include "GameController.hpp"
 #include "PieceRenderer.hpp"
 
+#include "chess/Rules.hpp"
+
 #include <QPainter>
 #include <QSvgRenderer>
 
@@ -42,22 +44,11 @@ constexpr int valueOf(chess::PieceType type)
 constexpr std::array<chess::PieceType, 5> kByDescendingValue{chess::PieceType::Queen, chess::PieceType::Rook,
     chess::PieceType::Bishop, chess::PieceType::Knight, chess::PieceType::Pawn};
 
-int countOf(const chess::Board& board, chess::PieceType type, chess::Color color)
-{
-    int total = 0;
-    for (int i = 0; i < chess::kSquareCount; ++i) {
-        if (board.pieceAt(static_cast<chess::Square>(i)) == chess::Piece{type, color}) {
-            ++total;
-        }
-    }
-    return total;
-}
-
-int materialOf(const chess::Board& board, chess::Color color)
+int valueOf(const chess::Material& material)
 {
     int total = 0;
     for (const chess::PieceType type : kByDescendingValue) {
-        total += countOf(board, type, color) * valueOf(type);
+        total += material.of(type) * valueOf(type);
     }
     return total;
 }
@@ -89,23 +80,23 @@ void CapturedTray::recalculate()
 {
     captured_.clear();
 
-    const chess::Board& start = controller_.startPosition().board;
-    const chess::Board& now = controller_.position().board;
     const chess::Color victim = chess::opposite(side_);
 
-    // What this side has taken is what the other side has lost since the game
-    // began, which is why a custom starting position works without a special
-    // case.
+    // Three passes over the board, not one per piece type. What this side has
+    // taken is what the other has lost since the game began, which is why a
+    // custom starting position needs no special case.
+    const chess::Material started = chess::countMaterial(controller_.startPosition().board, victim);
+    const chess::Material remains = chess::countMaterial(controller_.position().board, victim);
+    const chess::Material mine = chess::countMaterial(controller_.position().board, side_);
+
     for (const chess::PieceType type : kByDescendingValue) {
-        const int lost = countOf(start, type, victim) - countOf(now, type, victim);
+        const int lost = started.of(type) - remains.of(type);
         for (int i = 0; i < lost; ++i) {
             captured_.append(type);
         }
     }
 
-    const int mine = materialOf(now, side_);
-    const int theirs = materialOf(now, victim);
-    lead_ = std::max(0, mine - theirs);
+    lead_ = std::max(0, valueOf(mine) - valueOf(remains));
 }
 
 void CapturedTray::refresh()

@@ -21,6 +21,7 @@ QString describeColor(chess::Color color)
 
 GameController::GameController(QObject* parent)
     : QObject(parent)
+    , terminalReason_(game_.terminalReason())
 {
 }
 
@@ -64,7 +65,7 @@ void GameController::selectSquare(chess::Square square)
 {
     // Picking up a piece is only meaningful for the side to move, and only
     // when it has somewhere to go. Anything else is a click on the board.
-    if (!chess::isValid(square) || game_.isOver()) {
+    if (!chess::isValid(square) || isGameOver()) {
         clearSelection();
         return;
     }
@@ -123,12 +124,13 @@ bool GameController::moveTo(chess::Square square)
     }
 
     const chess::Square from = selected_;
-    const chess::MoveList legal = game_.legalMoves();
+    const std::optional<chess::Move> candidate = game_.legalMoves().findAnyBetween(from, square);
 
     // A promotion is four moves sharing from and to. Ask which one rather than
     // silently choosing a queen, and hold the move until the answer arrives.
-    if (legal.find(from, square, chess::PieceType::Queen).has_value()) {
-        pendingPromotion_ = chess::Move{from, square, chess::PieceType::Queen, chess::MoveKind::Quiet};
+    // The rules say whether a choice is needed; the interface does not guess.
+    if (candidate && candidate->isPromotion()) {
+        pendingPromotion_ = *candidate;
         emit promotionRequested(from, square, sideToMove());
         return true;
     }
@@ -213,6 +215,8 @@ void GameController::goToPly(std::size_t ply)
 
 void GameController::refreshAfterPositionChange()
 {
+    terminalReason_ = game_.terminalReason();
+
     // Any change of position invalidates the selection, because the piece that
     // was picked up has either moved or is no longer the side to move's.
     selected_ = chess::Square::None;
@@ -221,8 +225,8 @@ void GameController::refreshAfterPositionChange()
     emit selectionChanged(selected_, legalTargets_);
     emit positionChanged();
 
-    if (game_.isOver()) {
-        emit gameOver(game_.outcome(), game_.terminalReason());
+    if (terminalReason_ != chess::TerminalReason::None) {
+        emit gameOver(chess::outcomeFor(terminalReason_, sideToMove()), terminalReason_);
     }
 }
 
@@ -233,9 +237,7 @@ bool GameController::isInCheck(chess::Color color) const
 
 QString GameController::statusText() const
 {
-    const chess::TerminalReason reason = game_.terminalReason();
-
-    switch (reason) {
+    switch (terminalReason_) {
     case chess::TerminalReason::Checkmate:
         return tr("Checkmate — %1 wins").arg(describeColor(chess::opposite(sideToMove())));
     case chess::TerminalReason::Stalemate:
@@ -254,6 +256,12 @@ QString GameController::statusText() const
         return tr("%1 to move — check").arg(describeColor(sideToMove()));
     }
     return tr("%1 to move").arg(describeColor(sideToMove()));
+}
+
+QString GameController::describeIllegalMove(chess::Square from, chess::Square to)
+{
+    return tr("%1 to %2 is not a legal move")
+        .arg(QString::fromStdString(chess::toString(from)), QString::fromStdString(chess::toString(to)));
 }
 
 QString GameController::fen() const

@@ -46,15 +46,6 @@ constexpr int kCheckPulseMs = 900;
 constexpr qreal kCoordinateFontSize = geometry::kSquareSize * 0.17;
 constexpr qreal kCoordinateInset = geometry::kSquareSize * 0.06;
 
-void clearItems(QGraphicsScene& scene, QList<QGraphicsItem*>& items)
-{
-    for (QGraphicsItem* item : items) {
-        scene.removeItem(item);
-        delete item;
-    }
-    items.clear();
-}
-
 } // namespace
 
 BoardScene::BoardScene(GameController& controller, QObject* parent)
@@ -69,9 +60,13 @@ BoardScene::BoardScene(GameController& controller, QObject* parent)
     rebuildPieces();
 }
 
-bool BoardScene::isLightSquare(chess::Square square)
+void BoardScene::clearLayer(QList<QGraphicsItem*>& items)
 {
-    return ((static_cast<int>(chess::fileOf(square)) + static_cast<int>(chess::rankOf(square))) % 2) != 0;
+    for (QGraphicsItem* item : items) {
+        removeItem(item);
+        delete item;
+    }
+    items.clear();
 }
 
 void BoardScene::buildSquares()
@@ -90,7 +85,7 @@ void BoardScene::updateSquareColours()
     for (auto it = squareItems_.constBegin(); it != squareItems_.constEnd(); ++it) {
         const auto square = static_cast<chess::Square>(it.key());
         it.value()->setRect(geometry::squareRect(square, flipped_));
-        it.value()->setBrush(isLightSquare(square) ? theme_.lightSquare : theme_.darkSquare);
+        it.value()->setBrush(chess::isLightSquare(square) ? theme_.lightSquare : theme_.darkSquare);
     }
 }
 
@@ -135,7 +130,7 @@ void BoardScene::updateCoordinates()
         for (const Label& label : labels) {
             QGraphicsSimpleTextItem* item = coordinateItems_.at(index++);
             item->setText(label.text);
-            item->setBrush(isLightSquare(label.square) ? theme_.darkSquare : theme_.lightSquare);
+            item->setBrush(chess::isLightSquare(label.square) ? theme_.darkSquare : theme_.lightSquare);
 
             const QRectF square = geometry::squareRect(label.square, flipped_);
             const QRectF bounds = item->boundingRect();
@@ -149,13 +144,23 @@ void BoardScene::updateCoordinates()
     }
 }
 
+// Everything a theme or a flip changes, short of moving the pieces.
+void BoardScene::redrawBoardDecoration()
+{
+    updateSquareColours();
+    updateCoordinates();
+    clearLayer(positionHighlights_);
+    updateLastMoveHighlight();
+    updateCheckHighlight();
+    updateSelection(controller_.selectedSquare(), controller_.legalTargets());
+}
+
 void BoardScene::setTheme(const Theme& theme)
 {
     theme_ = theme;
-    updateSquareColours();
-    updateCoordinates();
-    rebuildPieces();
-    updateSelection(controller_.selectedSquare(), controller_.legalTargets());
+    // The pieces are not rebuilt: they are drawn from SVG whose colours do not
+    // depend on the theme, so only the board around them changes.
+    redrawBoardDecoration();
 }
 
 void BoardScene::setFlipped(bool flipped)
@@ -164,22 +169,19 @@ void BoardScene::setFlipped(bool flipped)
         return;
     }
     flipped_ = flipped;
-    updateSquareColours();
-    updateCoordinates();
+    // Flipping does move every piece, so this one has to rebuild.
     rebuildPieces();
-    updateSelection(controller_.selectedSquare(), controller_.legalTargets());
+    redrawBoardDecoration();
 }
 
 void BoardScene::noteMovePlayed(const chess::Move& move)
 {
-    pendingAnimation_ = move;
-    pendingAnimationIsUndo_ = false;
+    pendingAnimation_ = PendingAnimation{move, false};
 }
 
 void BoardScene::noteMoveUndone(const chess::Move& move)
 {
-    pendingAnimation_ = move;
-    pendingAnimationIsUndo_ = true;
+    pendingAnimation_ = PendingAnimation{move, true};
 }
 
 QGraphicsSvgItem* BoardScene::pieceItemAt(chess::Square square) const
@@ -238,6 +240,7 @@ void BoardScene::rebuildPieces()
         pieceItems_.insert(i, item);
     }
 
+    clearLayer(positionHighlights_);
     updateLastMoveHighlight();
     updateCheckHighlight();
     runPendingAnimation();
@@ -268,17 +271,19 @@ void BoardScene::slideItemFrom(QGraphicsItem* item, const QPointF& offset)
 
 void BoardScene::runPendingAnimation()
 {
-    const std::optional<chess::Move> move = pendingAnimation_;
-    const bool undoing = pendingAnimationIsUndo_;
+    const std::optional<PendingAnimation> pending = pendingAnimation_;
     pendingAnimation_.reset();
 
-    if (!move || !animationEnabled_) {
+    if (!pending || !animationEnabled_) {
         return;
     }
 
+    const chess::Move& move = pending->move;
+    const bool undoing = pending->isUndo;
+
     // Undoing walks the same move backwards, so the two squares swap roles.
-    const chess::Square from = undoing ? move->to : move->from;
-    const chess::Square to = undoing ? move->from : move->to;
+    const chess::Square from = undoing ? move.to : move.from;
+    const chess::Square to = undoing ? move.from : move.to;
 
     QGraphicsSvgItem* item = pieceItemAt(to);
     if (item == nullptr) {
@@ -290,19 +295,18 @@ void BoardScene::runPendingAnimation()
     const QPointF offset = geometry::squareCentre(from, flipped_) - geometry::squareCentre(to, flipped_);
     slideItemFrom(item, offset);
 
-    if (!move->isCastle()) {
+    if (!move.isCastle()) {
         return;
     }
 
     // The rook travels with the king, or the castle looks like the king
-    // teleporting past a stationary rook.
-    const int backRank = static_cast<int>(chess::rankOf(move->from));
-    const bool kingSide = move->kind == chess::MoveKind::CastleKingSide;
-    chess::Square rookFrom = chess::makeSquare(kingSide ? 7 : 0, backRank);
-    chess::Square rookTo = chess::makeSquare(kingSide ? 5 : 3, backRank);
-    if (undoing) {
-        std::swap(rookFrom, rookTo);
-    }
+    // teleporting past a stationary rook. Which squares those are is a rule of
+    // chess, so it is asked for rather than worked out again here.
+    const chess::Color mover
+        = chess::rankOf(move.from) == chess::Rank::R1 ? chess::Color::White : chess::Color::Black;
+    const chess::RookTravel travel = chess::rookTravelFor(mover, move.kind);
+    const chess::Square rookFrom = undoing ? travel.to : travel.from;
+    const chess::Square rookTo = undoing ? travel.from : travel.to;
 
     if (QGraphicsSvgItem* rook = pieceItemAt(rookTo)) {
         slideItemFrom(
@@ -312,7 +316,7 @@ void BoardScene::runPendingAnimation()
 
 void BoardScene::updateSelection(chess::Square selected, const QList<chess::Square>& targets)
 {
-    clearItems(*this, selectionItems_);
+    clearLayer(selectionItems_);
 
     if (chess::isValid(selected)) {
         auto* highlight = addRect(geometry::squareRect(selected, flipped_), Qt::NoPen, theme_.selection);
@@ -348,7 +352,6 @@ void BoardScene::updateSelection(chess::Square selected, const QList<chess::Squa
 
 void BoardScene::updateLastMoveHighlight()
 {
-    clearItems(*this, lastMoveItems_);
 
     const chess::PlayedMove* played = controller_.lastMove();
     if (played == nullptr) {
@@ -358,13 +361,12 @@ void BoardScene::updateLastMoveHighlight()
     for (const chess::Square square : {played->move.from, played->move.to}) {
         auto* highlight = addRect(geometry::squareRect(square, flipped_), Qt::NoPen, theme_.lastMove);
         highlight->setZValue(kLastMoveZ);
-        lastMoveItems_.append(highlight);
+        positionHighlights_.append(highlight);
     }
 }
 
 void BoardScene::updateCheckHighlight()
 {
-    clearItems(*this, checkItems_);
 
     for (const chess::Color color : {chess::Color::White, chess::Color::Black}) {
         if (!controller_.isInCheck(color)) {
@@ -376,7 +378,7 @@ void BoardScene::updateCheckHighlight()
         }
         auto* highlight = addRect(geometry::squareRect(king, flipped_), Qt::NoPen, theme_.check);
         highlight->setZValue(kCheckZ);
-        checkItems_.append(highlight);
+        positionHighlights_.append(highlight);
 
         if (!animationEnabled_) {
             continue;

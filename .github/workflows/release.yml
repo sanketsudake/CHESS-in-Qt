@@ -51,9 +51,28 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
+  # Tagging does not prove the commit was ever tested -- a tag can be pushed at
+  # any commit, including one whose CI never ran or went red. The three
+  # packaging jobs wait on this, so a broken commit cannot be published.
+  test:
+    name: Test the tagged commit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      # The rules carry the tests worth gating on and link no Qt, so this
+      # costs under a minute rather than a Qt install per platform.
+      - name: Build and test the rules
+        run: |
+          cmake --preset ci -DCINES_BUILD_APP=OFF
+          cmake --build --preset ci
+          ctest --preset ci
+
   linux:
     name: Linux AppImage
-    needs: version
+    needs: [version, test]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,7 +129,7 @@ jobs:
 
   windows:
     name: Windows zip
-    needs: version
+    needs: [version, test]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -148,7 +167,7 @@ jobs:
 
   macos:
     name: macOS disk image
-    needs: version
+    needs: [version, test]
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

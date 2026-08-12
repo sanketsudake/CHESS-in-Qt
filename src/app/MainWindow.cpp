@@ -30,7 +30,6 @@ namespace cines {
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , controller_(new GameController(this))
-    , pieceRenderer_(new PieceRenderer(this))
     , scene_(new BoardScene(*controller_, this))
     , view_(new BoardView(*controller_, *scene_, this))
 {
@@ -61,10 +60,7 @@ MainWindow::MainWindow(QWidget* parent)
     // has missed a pin repeats the same drag with no idea why it will not go.
     connect(controller_, &GameController::illegalMoveAttempted, this,
         [this](chess::Square from, chess::Square to) {
-            statusBar()->showMessage(tr("%1 to %2 is not a legal move")
-                                         .arg(QString::fromStdString(chess::toString(from)),
-                                             QString::fromStdString(chess::toString(to))),
-                2500);
+            statusBar()->showMessage(GameController::describeIllegalMove(from, to), 2500);
         });
 
     // Following the desktop means following it as it changes, not only at
@@ -75,9 +71,13 @@ MainWindow::MainWindow(QWidget* parent)
         }
     });
 
-    buildMenus();
+    // Settings are read before the menus are built, so each action is created
+    // already showing the right state instead of being created wrong and
+    // corrected a moment later.
     restoreSettings();
+    buildMenus();
     applyTheme();
+    onPositionChanged();
 }
 
 QWidget* MainWindow::buildSidePanel()
@@ -88,8 +88,8 @@ QWidget* MainWindow::buildSidePanel()
     auto* layout = new QVBoxLayout(panel);
     layout->setContentsMargins(8, 0, 0, 0);
 
-    blackTray_ = new CapturedTray(*controller_, *pieceRenderer_, chess::Color::Black, panel);
-    whiteTray_ = new CapturedTray(*controller_, *pieceRenderer_, chess::Color::White, panel);
+    blackTray_ = new CapturedTray(*controller_, scene_->renderer(), chess::Color::Black, panel);
+    whiteTray_ = new CapturedTray(*controller_, scene_->renderer(), chess::Color::White, panel);
 
     moveListModel_ = new MoveListModel(*controller_, this);
     moveListView_ = new QTableView(panel);
@@ -163,7 +163,8 @@ void MainWindow::buildMenus()
     flipAction_ = viewMenu->addAction(tr("&Flip Board"));
     flipAction_->setShortcut(QKeySequence(Qt::Key_F));
     flipAction_->setCheckable(true);
-    connect(flipAction_, &QAction::triggered, this, &MainWindow::toggleFlip);
+    flipAction_->setChecked(scene_->isFlipped());
+    connect(flipAction_, &QAction::toggled, scene_, &BoardScene::setFlipped);
 
     viewMenu->addSeparator();
 
@@ -188,19 +189,15 @@ void MainWindow::buildMenus()
         action->setCheckable(true);
         action->setData(static_cast<int>(entry.choice));
         themeGroup->addAction(action);
-        connect(action, &QAction::triggered, this, [this, entry] { setThemeChoice(entry.choice); });
+        connect(action, &QAction::triggered, this, [this, choice = entry.choice] { setThemeChoice(choice); });
         if (entry.choice == themeChoice_) {
             action->setChecked(true);
         }
     }
 
-    themeActions_ = themeGroup;
-
     QMenu* helpMenu = menuBar()->addMenu(tr("&Help"));
     QAction* about = helpMenu->addAction(tr("&About CINES"));
     connect(about, &QAction::triggered, this, &MainWindow::showAbout);
-
-    onPositionChanged();
 }
 
 void MainWindow::copyPgnToClipboard()
@@ -251,17 +248,7 @@ void MainWindow::restoreSettings()
         break;
     }
 
-    if (themeActions_ != nullptr) {
-        for (QAction* action : themeActions_->actions()) {
-            action->setChecked(action->data().toInt() == static_cast<int>(themeChoice_));
-        }
-    }
-
-    const bool flipped = settings.value(QStringLiteral("view/flipped"), false).toBool();
-    scene_->setFlipped(flipped);
-    if (flipAction_ != nullptr) {
-        flipAction_->setChecked(flipped);
-    }
+    scene_->setFlipped(settings.value(QStringLiteral("view/flipped"), false).toBool());
 
     // restoreGeometry reports whether the saved bytes were usable -- they may
     // have been written by another version, or name a screen that is no longer
@@ -293,21 +280,13 @@ void MainWindow::onPositionChanged()
 
     // The panel is derived from the same position, so it is refreshed here
     // rather than kept in step by its own signal wiring.
-    if (moveListModel_ != nullptr) {
-        moveListModel_->refresh();
-        moveListView_->scrollTo(moveListModel_->indexOfCurrentPly());
-    }
-    if (whiteTray_ != nullptr) {
-        whiteTray_->refresh();
-        blackTray_->refresh();
-    }
+    moveListModel_->refresh();
+    moveListView_->scrollTo(moveListModel_->indexOfCurrentPly());
+    whiteTray_->refresh();
+    blackTray_->refresh();
 
-    if (undoAction_ != nullptr) {
-        undoAction_->setEnabled(controller_->canUndo());
-    }
-    if (redoAction_ != nullptr) {
-        redoAction_->setEnabled(controller_->canRedo());
-    }
+    undoAction_->setEnabled(controller_->canUndo());
+    redoAction_->setEnabled(controller_->canRedo());
 }
 
 void MainWindow::onGameOver(chess::Outcome outcome, chess::TerminalReason reason)
@@ -325,7 +304,7 @@ void MainWindow::onPromotionRequested(chess::Square from, chess::Square to, ches
     Q_UNUSED(from);
     Q_UNUSED(to);
 
-    PromotionDialog dialog(color, *pieceRenderer_, this);
+    PromotionDialog dialog(color, scene_->renderer(), this);
     dialog.exec();
 
     // A dismissed dialog yields PieceType::None, which the controller reads as
@@ -347,14 +326,6 @@ void MainWindow::pasteFenFromClipboard()
         // when the record parsed and was simply not a board that could occur.
         statusBar()->showMessage(
             tr("Cannot use that position: %1").arg(controller_->lastPositionError()), 5000);
-    }
-}
-
-void MainWindow::toggleFlip()
-{
-    scene_->setFlipped(!scene_->isFlipped());
-    if (flipAction_ != nullptr) {
-        flipAction_->setChecked(scene_->isFlipped());
     }
 }
 

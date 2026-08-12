@@ -35,13 +35,13 @@ jobs:
       - name: Install pinned LLVM tools
         run: pip install "clang-format==${LLVM_TOOLS_VERSION}" "clang-tidy==${LLVM_TOOLS_VERSION}"
 
+      # Everything git tracks, rather than a hand-written list of directories
+      # that a new or nested one would silently escape. googletest is fetched
+      # into the build directory, so it is not tracked and not checked.
       - name: Check formatting
         run: |
           clang-format --version
-          clang-format --dry-run --Werror \
-            src/core/include/chess/*.hpp src/core/src/*.?pp \
-            src/app/*.?pp tools/*.cpp \
-            tests/*.cpp tests/ui/*.cpp
+          git ls-files '*.cpp' '*.hpp' | xargs clang-format --dry-run --Werror
 
       # clang-tidy needs a compilation database, so configure first. Building is
       # not required -- the CI preset exports compile_commands.json at configure

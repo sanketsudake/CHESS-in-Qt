@@ -4,6 +4,8 @@
 #include "chess/Position.hpp"
 #include "chess/Types.hpp"
 
+#include <array>
+#include <cstddef>
 #include <string_view>
 
 namespace chess {
@@ -19,6 +21,31 @@ enum class TerminalReason : std::uint8_t {
 };
 
 enum class Outcome : std::uint8_t { Ongoing, WhiteWins, BlackWins, Draw };
+
+// How much of each kind of piece one side has on the board.
+//
+// One pass produces the whole count, which is what callers want: deciding
+// whether a draw is forced, whether a position is possible, and what has been
+// captured are all questions about the same tally.
+struct Material {
+    // Indexed by PieceType. The None slot is always zero.
+    std::array<int, 7> counts{};
+
+    // Bishops split by the colour of square they stand on, because two
+    // bishops on the same colour can never attack the same squares.
+    int lightSquareBishops = 0;
+    int darkSquareBishops = 0;
+
+    [[nodiscard]] int of(PieceType type) const { return counts[static_cast<std::size_t>(type)]; }
+
+    [[nodiscard]] int minors() const { return of(PieceType::Knight) + of(PieceType::Bishop); }
+
+    // Everything except the king, which is counted separately because an
+    // invalid position can have the wrong number of those.
+    [[nodiscard]] int total() const;
+};
+
+[[nodiscard]] Material countMaterial(const Board& board, Color color);
 
 // True when any piece of `attacker` could capture onto `square`, whether or
 // not doing so would be legal for the attacker. This is the primitive behind

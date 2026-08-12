@@ -18,7 +18,6 @@ class BoardView;
 class CapturedTray;
 class GameController;
 class MoveListModel;
-class PieceRenderer;
 
 // The window: a board, a status line, and the actions that act on the game.
 //
@@ -48,7 +47,6 @@ private:
     void pasteFenFromClipboard();
     void copyPgnToClipboard();
     void showAbout();
-    void toggleFlip();
     void jumpToMove(const QModelIndex& index);
 
     // Applies the current choice, resolving Follow System against the desktop.
@@ -59,7 +57,6 @@ private:
     void saveSettings() const;
 
     GameController* controller_;
-    PieceRenderer* pieceRenderer_;
     BoardScene* scene_;
     BoardView* view_;
     MoveListModel* moveListModel_ = nullptr;
@@ -70,7 +67,6 @@ private:
     QAction* undoAction_ = nullptr;
     QAction* redoAction_ = nullptr;
     QAction* flipAction_ = nullptr;
-    QActionGroup* themeActions_ = nullptr;
 
     ThemeChoice themeChoice_ = ThemeChoice::FollowSystem;
 };

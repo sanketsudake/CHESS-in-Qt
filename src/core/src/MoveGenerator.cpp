@@ -168,6 +168,16 @@ std::optional<Move> MoveList::find(Square from, Square to, PieceType promotion) 
     return std::nullopt;
 }
 
+std::optional<Move> MoveList::findAnyBetween(Square from, Square to) const
+{
+    for (const Move& move : *this) {
+        if (move.from == from && move.to == to) {
+            return move;
+        }
+    }
+    return std::nullopt;
+}
+
 MoveList generatePseudoLegalMoves(const Position& position)
 {
     MoveList moves;

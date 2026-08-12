@@ -48,7 +48,7 @@ public:
     // last piece came from. Null at the start of a game.
     [[nodiscard]] const chess::PlayedMove* lastMove() const { return game_.lastMove(); }
 
-    [[nodiscard]] bool isGameOver() const { return game_.isOver(); }
+    [[nodiscard]] bool isGameOver() const { return terminalReason_ != chess::TerminalReason::None; }
     [[nodiscard]] bool canUndo() const { return game_.canUndo(); }
     [[nodiscard]] bool canRedo() const { return game_.canRedo(); }
 
@@ -58,6 +58,10 @@ public:
 
     // A sentence for the status bar: whose turn it is, or how the game ended.
     [[nodiscard]] QString statusText() const;
+
+    // Why a move was refused, phrased for the player. Beside statusText so
+    // that all the sentences the interface shows are written in one place.
+    [[nodiscard]] static QString describeIllegalMove(chess::Square from, chess::Square to);
 
     [[nodiscard]] QString fen() const;
 
@@ -127,6 +131,13 @@ private:
     void setSelection(chess::Square square);
 
     chess::Game game_;
+
+    // Worked out once whenever the position changes, because deciding it means
+    // generating every legal move. Reading it from statusText, isGameOver and
+    // the gameOver signal otherwise cost three or four generations of the same
+    // answer for one move.
+    chess::TerminalReason terminalReason_ = chess::TerminalReason::None;
+
     chess::Square selected_ = chess::Square::None;
     QList<chess::Square> legalTargets_;
     QString lastPositionError_;
