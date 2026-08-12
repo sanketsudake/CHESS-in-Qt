@@ -75,9 +75,18 @@ jobs:
           - name: Windows
             os: windows-latest
             qt: '6.8.3'
+          # macOS cannot use the 6.8 LTS here. Apple removed the AGL framework
+          # in the macOS 15 SDK, Qt referenced it until 6.8.4 and 6.9.2
+          # (QTBUG-137687), and the open-source 6.8 series stops at 6.8.3 --
+          # 6.8.4 onwards are commercial-only patch releases, so aqtinstall
+          # cannot fetch a fixed 6.8. Without this the link fails with
+          # "ld: framework 'AGL' not found".
+          #
+          # The CMake floor stays at 6.8: that is a source-compatibility
+          # statement, and Linux and Windows still build against it.
           - name: macOS
             os: macos-latest
-            qt: '6.8.3'
+            qt: '6.9.3'
           # One leg on a newer Qt catches deprecations before they become an
           # upgrade cliff. Pinned rather than floating, so a new Qt release
           # cannot turn a green branch red on its own.
