@@ -12,8 +12,8 @@
 #include "GameController.hpp"
 #include "Theme.hpp"
 
+#include <QApplication>
 #include <QCommandLineParser>
-#include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
 
@@ -23,7 +23,12 @@ int main(int argc, char* argv[])
 {
     // Offscreen so this runs on a build agent with no display.
     qputenv("QT_QPA_PLATFORM", "offscreen");
-    QGuiApplication application(argc, argv);
+
+    // QApplication rather than QGuiApplication: BoardScene is built from
+    // QtWidgets classes, and a graphics effect reaches for the style and
+    // palette that only QApplication sets up. With QGuiApplication this
+    // crashes as soon as the board draws a king in check.
+    QApplication application(argc, argv);
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Render a chess position to a PNG"));
@@ -52,6 +57,12 @@ int main(int argc, char* argv[])
     }
 
     cines::BoardScene scene(controller);
+
+    // Off, so the image is the settled board rather than whatever frame an
+    // animation happened to be on. Without this the same command would produce
+    // a slightly different picture each run.
+    scene.setAnimationEnabled(false);
+
     scene.setTheme(parser.isSet(darkOption) ? cines::Theme::dark() : cines::Theme::light());
     scene.setFlipped(parser.isSet(flipOption));
 

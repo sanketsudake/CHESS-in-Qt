@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QColor>
+#include <Qt>
 
 namespace cines {
 
@@ -33,6 +34,18 @@ struct Theme {
 
     [[nodiscard]] static Theme light();
     [[nodiscard]] static Theme dark();
+
+    // Which theme a colour scheme asks for. Qt::ColorScheme::Unknown means the
+    // platform has no opinion, which is treated as light.
+    [[nodiscard]] static Theme forScheme(Qt::ColorScheme scheme);
 };
+
+// What the player chose in the View menu, which is not the same thing as which
+// theme is in use: Follow System resolves to one or the other depending on the
+// desktop, and changes with it.
+enum class ThemeChoice { FollowSystem, Light, Dark };
+
+// Resolves a choice against the platform's current colour scheme.
+[[nodiscard]] Theme themeFor(ThemeChoice choice);
 
 } // namespace cines

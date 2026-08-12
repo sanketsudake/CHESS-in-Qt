@@ -8,7 +8,10 @@
 #include <QHash>
 #include <QList>
 
+#include <optional>
+
 class QGraphicsRectItem;
+class QGraphicsSimpleTextItem;
 class QGraphicsSvgItem;
 
 namespace cines {
@@ -50,15 +53,30 @@ public:
     void moveLiftedPieceTo(const QPointF& scenePosition);
     [[nodiscard]] bool hasLiftedPiece() const { return liftedItem_ != nullptr; }
 
+    // Animation is a courtesy, not a correctness feature. Tests turn it off so
+    // they can assert final positions without waiting on the event loop.
+    void setAnimationEnabled(bool enabled) { animationEnabled_ = enabled; }
+    [[nodiscard]] bool isAnimationEnabled() const { return animationEnabled_; }
+
 public slots:
     void rebuildPieces();
     void updateSelection(chess::Square selected, const QList<chess::Square>& targets);
 
+    // Remembers a move so the next rebuild can glide the piece into place
+    // instead of teleporting it. The controller emits the move before it emits
+    // the position change, so the hint always arrives first.
+    void noteMovePlayed(const chess::Move& move);
+    void noteMoveUndone(const chess::Move& move);
+
 private:
     void buildSquares();
+    void buildCoordinates();
     void updateSquareColours();
+    void updateCoordinates();
     void updateLastMoveHighlight();
     void updateCheckHighlight();
+    void runPendingAnimation();
+    void slideItemFrom(QGraphicsItem* item, const QPointF& offset);
     [[nodiscard]] static bool isLightSquare(chess::Square square);
 
     GameController& controller_;
@@ -68,6 +86,7 @@ private:
 
     QHash<int, QGraphicsRectItem*> squareItems_;
     QHash<int, QGraphicsSvgItem*> pieceItems_;
+    QList<QGraphicsSimpleTextItem*> coordinateItems_;
 
     // Highlight layers, kept separately so each can be cleared without
     // disturbing the others.
@@ -77,6 +96,11 @@ private:
 
     QGraphicsSvgItem* liftedItem_ = nullptr;
     chess::Square liftedFrom_ = chess::Square::None;
+
+    // The move to animate on the next rebuild, and which way round to play it.
+    std::optional<chess::Move> pendingAnimation_;
+    bool pendingAnimationIsUndo_ = false;
+    bool animationEnabled_ = true;
 };
 
 } // namespace cines

@@ -48,6 +48,7 @@ if(CINES_BUILD_APP)
     ui/ui_test_main.cpp
     ui/game_controller_test.cpp
     ui/board_scene_test.cpp
+    ui/board_ux_test.cpp
   )
   # Qt6::Test is here for QSignalSpy, which is how the tests assert that the
   # controller told the widgets what happened.

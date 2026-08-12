@@ -93,6 +93,10 @@ signals:
 
     void moveMade(const chess::Move& move, const QString& san);
 
+    // The move that was just taken back. The board plays it in reverse, which
+    // is what makes undo readable rather than a sudden change of position.
+    void moveUndone(const chess::Move& move);
+
     void selectionChanged(chess::Square selected, const QList<chess::Square>& targets);
 
     // A pawn reached the far rank and the player must choose a piece. The

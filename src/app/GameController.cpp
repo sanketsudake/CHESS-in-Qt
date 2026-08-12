@@ -146,10 +146,19 @@ void GameController::finishPromotion(chess::PieceType piece)
 
 void GameController::undo()
 {
+    // Read the move before undoing: afterwards lastMove names the move before
+    // it, not the one being taken back.
+    const chess::PlayedMove* undone = game_.lastMove();
+    const std::optional<chess::Move> move = undone != nullptr ? std::optional{undone->move} : std::nullopt;
+
     if (!game_.undo()) {
         return;
     }
+
     pendingPromotion_.reset();
+    if (move) {
+        emit moveUndone(*move);
+    }
     refreshAfterPositionChange();
 }
 
@@ -157,6 +166,11 @@ void GameController::redo()
 {
     if (!game_.redo()) {
         return;
+    }
+
+    const chess::PlayedMove* replayed = game_.lastMove();
+    if (replayed != nullptr) {
+        emit moveMade(replayed->move, QString::fromStdString(replayed->san));
     }
     refreshAfterPositionChange();
 }

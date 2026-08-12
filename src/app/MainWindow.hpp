@@ -1,10 +1,13 @@
 #pragma once
 
 #include "ChessMetaTypes.hpp"
+#include "Theme.hpp"
 #include "chess/Rules.hpp"
 #include "chess/Types.hpp"
 
 #include <QMainWindow>
+
+class QCloseEvent;
 
 namespace cines {
 
@@ -24,6 +27,11 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(QWidget* parent = nullptr);
 
+protected:
+    // Settings are written on close rather than on every change, so a session
+    // that ends normally remembers how it was left.
+    void closeEvent(QCloseEvent* event) override;
+
 private slots:
     void onPositionChanged();
     void onGameOver(chess::Outcome outcome, chess::TerminalReason reason);
@@ -35,6 +43,13 @@ private:
     void pasteFenFromClipboard();
     void toggleFlip();
 
+    // Applies the current choice, resolving Follow System against the desktop.
+    void applyTheme();
+    void setThemeChoice(ThemeChoice choice);
+
+    void restoreSettings();
+    void saveSettings() const;
+
     GameController* controller_;
     PieceRenderer* promotionRenderer_;
     BoardScene* scene_;
@@ -42,6 +57,10 @@ private:
 
     QAction* undoAction_ = nullptr;
     QAction* redoAction_ = nullptr;
+    QAction* flipAction_ = nullptr;
+    QActionGroup* themeActions_ = nullptr;
+
+    ThemeChoice themeChoice_ = ThemeChoice::FollowSystem;
 };
 
 } // namespace cines

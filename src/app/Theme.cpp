@@ -1,5 +1,8 @@
 #include "Theme.hpp"
 
+#include <QGuiApplication>
+#include <QStyleHints>
+
 namespace cines {
 
 Theme Theme::light()
@@ -30,6 +33,31 @@ Theme Theme::dark()
     theme.boardBorder = QColor(0x24, 0x27, 0x2B);
     theme.coordinateText = QColor(0xD8, 0xDB, 0xE0);
     return theme;
+}
+
+Theme Theme::forScheme(Qt::ColorScheme scheme)
+{
+    // Unknown means the platform has no preference to report, which is not a
+    // reason to guess dark.
+    return scheme == Qt::ColorScheme::Dark ? dark() : light();
+}
+
+Theme themeFor(ThemeChoice choice)
+{
+    switch (choice) {
+    case ThemeChoice::Light:
+        return Theme::light();
+    case ThemeChoice::Dark:
+        return Theme::dark();
+    case ThemeChoice::FollowSystem:
+        break;
+    }
+
+    // In a test or a tool there may be no application object yet.
+    if (QGuiApplication::instance() == nullptr) {
+        return Theme::light();
+    }
+    return Theme::forScheme(QGuiApplication::styleHints()->colorScheme());
 }
 
 } // namespace cines
