@@ -28,3 +28,14 @@ cines_add_core_test(core_types_test types_test.cpp)
 cines_add_core_test(core_board_test board_test.cpp)
 cines_add_core_test(core_move_test move_test.cpp)
 cines_add_core_test(core_fen_test fen_test.cpp)
+cines_add_core_test(core_movegen_test movegen_test.cpp)
+cines_add_core_test(core_rules_test rules_test.cpp)
+cines_add_core_test(core_san_test san_test.cpp)
+cines_add_core_test(core_game_test game_test.cpp)
+cines_add_core_test(core_perft_test perft_test.cpp)
+
+# Perft is the acceptance test for the rules, so its deep levels are opt-in
+# rather than deleted: -DCINES_SLOW_TESTS=ON adds the levels that take minutes.
+if(CINES_SLOW_TESTS)
+  target_compile_definitions(core_perft_test PRIVATE CINES_SLOW_TESTS)
+endif()

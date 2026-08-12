@@ -4,6 +4,11 @@ add_library(chesscore STATIC
   src/Position.cpp
   src/Move.cpp
   src/Fen.cpp
+  src/Rules.cpp
+  src/MoveGenerator.cpp
+  src/San.cpp
+  src/Game.cpp
+  src/Pgn.cpp
 )
 
 add_library(cines::core ALIAS chesscore)

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "chess/Board.hpp"
+#include "chess/Move.hpp"
 #include "chess/Types.hpp"
 
 #include <cstdint>
@@ -83,5 +84,32 @@ struct Position {
 
     friend bool operator==(const Position& a, const Position& b);
 };
+
+// The squares a rook starts on, and so the squares whose occupant leaving or
+// being captured costs a castling right.
+[[nodiscard]] constexpr Square kingSideRookSquare(Color c)
+{
+    return c == Color::White ? Square::H1 : Square::H8;
+}
+
+[[nodiscard]] constexpr Square queenSideRookSquare(Color c)
+{
+    return c == Color::White ? Square::A1 : Square::A8;
+}
+
+[[nodiscard]] constexpr Square kingStartSquare(Color c)
+{
+    return c == Color::White ? Square::E1 : Square::E8;
+}
+
+// Applies a move and returns the resulting position. Pure: the input is not
+// modified, which is what lets the legality filter try a move and throw the
+// result away, and what lets Game keep a history by value.
+//
+// The move must carry the right MoveKind, which is what the generator
+// produces. Re-deriving "was that an en passant capture?" from the board here
+// would duplicate the generator's reasoning, and that duplication is where the
+// 2012 code went wrong.
+[[nodiscard]] Position applyMove(const Position& position, const Move& move);
 
 } // namespace chess
