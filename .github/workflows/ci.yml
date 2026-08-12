@@ -39,17 +39,23 @@ jobs:
         run: |
           clang-format --version
           clang-format --dry-run --Werror \
-            src/core/include/chess/*.hpp src/core/src/*.cpp tests/*.cpp
+            src/core/include/chess/*.hpp src/core/src/*.?pp \
+            src/app/*.?pp tools/*.cpp \
+            tests/*.cpp tests/ui/*.cpp
 
       # clang-tidy needs a compilation database, so configure first. Building is
       # not required -- the CI preset exports compile_commands.json at configure
       # time. Configure with clang rather than the default gcc so the recorded
       # flags are ones clang-tidy's own driver understands.
+      #
+      # The application is left out: clang-tidy is pointed at the rules only
+      # (see HeaderFilterRegex in .clang-tidy), and skipping it means this job
+      # needs no Qt.
       - name: Configure for the compilation database
         env:
           CC: clang
           CXX: clang++
-        run: cmake --preset ci
+        run: cmake --preset ci -DCINES_BUILD_APP=OFF
 
       - name: Run clang-tidy over the core
         run: |
@@ -65,10 +71,19 @@ jobs:
         include:
           - name: Linux
             os: ubuntu-24.04
+            qt: '6.8.3'
           - name: Windows
             os: windows-latest
+            qt: '6.8.3'
           - name: macOS
             os: macos-latest
+            qt: '6.8.3'
+          # One leg on a newer Qt catches deprecations before they become an
+          # upgrade cliff. Pinned rather than floating, so a new Qt release
+          # cannot turn a green branch red on its own.
+          - name: Linux (Qt 6.9)
+            os: ubuntu-24.04
+            qt: '6.9.3'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -80,6 +95,24 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: ${{ matrix.qt }}
+          modules: qtsvg
+          cache: true
+
+      # The Qt module ships an X server-less platform plugin, but on Linux it
+      # still needs the system libraries the plugin links against.
+      - name: Install Linux platform libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
       - name: Configure
         run: cmake --preset ci
 
@@ -87,6 +120,8 @@ jobs:
       - name: Build
         run: cmake --build --preset ci
 
+      # The interface tests set the offscreen platform themselves, so they run
+      # the same way here as they do on a developer's machine.
       - name: Test
         run: ctest --preset ci
 
@@ -103,6 +138,9 @@ jobs:
 
       - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
 
+      # Core only. The rules are where a bad index would do real damage, and
+      # leaving Qt out keeps this job free of the allocator noise a large
+      # framework contributes to a leak report.
       - name: Build and test with sanitizers
         env:
           CC: clang
@@ -110,7 +148,7 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1
         run: |
-          cmake --preset ci-asan
+          cmake --preset ci-asan -DCINES_BUILD_APP=OFF
           cmake --build --preset ci-asan
           ctest --preset ci-asan
 
@@ -125,9 +163,11 @@ jobs:
       - name: Install gcovr
         run: pipx install "gcovr==8.6"
 
+      # Only the rules library is measured, so the application is not built
+      # here and Qt is not installed.
       - name: Build and test with coverage
         run: |
-          cmake --preset ci-coverage
+          cmake --preset ci-coverage -DCINES_BUILD_APP=OFF
           cmake --build --preset ci-coverage
           ctest --preset ci-coverage
 

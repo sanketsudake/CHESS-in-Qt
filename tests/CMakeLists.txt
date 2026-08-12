@@ -39,3 +39,21 @@ cines_add_core_test(core_perft_test perft_test.cpp)
 if(CINES_SLOW_TESTS)
   target_compile_definitions(core_perft_test PRIVATE CINES_SLOW_TESTS)
 endif()
+
+# The interface tests drive the real widgets under the offscreen platform, so
+# they need a QApplication and therefore their own entry point rather than
+# gtest_main. They are labelled separately so `ctest -L ui` runs just them.
+if(CINES_BUILD_APP)
+  add_executable(ui_test
+    ui/ui_test_main.cpp
+    ui/game_controller_test.cpp
+    ui/board_scene_test.cpp
+  )
+  # Qt6::Test is here for QSignalSpy, which is how the tests assert that the
+  # controller told the widgets what happened.
+  find_package(Qt6 6.8 REQUIRED COMPONENTS Test)
+  target_link_libraries(ui_test PRIVATE cines_app cines_warnings GTest::gtest Qt6::Test)
+  gtest_discover_tests(ui_test
+    PROPERTIES LABELS ui
+    DISCOVERY_TIMEOUT 30)
+endif()

@@ -25,6 +25,10 @@ if(APPLE AND NOT DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
 endif()
 
 option(CINES_BUILD_TESTS "Build the test suite" ON)
+
+# The rules library needs no Qt, so the jobs that only exercise it -- coverage
+# and the sanitizers -- can skip installing Qt entirely and stay fast.
+option(CINES_BUILD_APP "Build the Qt application" ON)
 option(CINES_SLOW_TESTS "Include the deep perft levels (minutes, not seconds)" OFF)
 option(CINES_WERROR "Treat compiler warnings as errors" OFF)
 
@@ -40,6 +44,10 @@ else()
 endif()
 
 add_subdirectory(src/core)
+
+if(CINES_BUILD_APP)
+  add_subdirectory(src/app)
+endif()
 
 if(CINES_BUILD_TESTS)
   enable_testing()

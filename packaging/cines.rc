@@ -1,0 +1,3 @@
+// Windows resource script. The only thing it carries is the application icon;
+// version information comes from the CMake project version at link time.
+IDI_ICON1 ICON "cines.ico"

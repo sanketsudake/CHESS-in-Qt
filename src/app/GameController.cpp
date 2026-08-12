@@ -1,0 +1,223 @@
+#include "GameController.hpp"
+
+#include "chess/Fen.hpp"
+#include "chess/MoveGenerator.hpp"
+#include "chess/Rules.hpp"
+
+#include <QCoreApplication>
+
+namespace cines {
+namespace {
+
+QString describeColor(chess::Color color)
+{
+    return color == chess::Color::White ? QCoreApplication::translate("GameController", "White")
+                                        : QCoreApplication::translate("GameController", "Black");
+}
+
+} // namespace
+
+GameController::GameController(QObject* parent)
+    : QObject(parent)
+{
+}
+
+void GameController::newGame()
+{
+    game_.reset();
+    pendingPromotion_.reset();
+    refreshAfterPositionChange();
+}
+
+bool GameController::setPositionFromFen(const QString& text)
+{
+    chess::fen::ParseResult result = chess::fen::parse(text.trimmed().toStdString());
+    if (std::holds_alternative<chess::fen::ParseError>(result)) {
+        return false;
+    }
+
+    game_.reset(std::get<chess::Position>(result));
+    pendingPromotion_.reset();
+    refreshAfterPositionChange();
+    return true;
+}
+
+void GameController::selectSquare(chess::Square square)
+{
+    // Picking up a piece is only meaningful for the side to move, and only
+    // when it has somewhere to go. Anything else is a click on the board.
+    if (!chess::isValid(square) || game_.isOver()) {
+        clearSelection();
+        return;
+    }
+
+    const chess::Piece piece = position().board.pieceAt(square);
+    if (piece.isEmpty() || piece.color != sideToMove()) {
+        clearSelection();
+        return;
+    }
+
+    setSelection(square);
+}
+
+void GameController::clearSelection()
+{
+    if (!chess::isValid(selected_) && legalTargets_.isEmpty()) {
+        return;
+    }
+    selected_ = chess::Square::None;
+    legalTargets_.clear();
+    emit selectionChanged(selected_, legalTargets_);
+}
+
+void GameController::setSelection(chess::Square square)
+{
+    selected_ = square;
+    legalTargets_.clear();
+
+    for (const chess::Move& move : game_.legalMoves()) {
+        if (move.from != square) {
+            continue;
+        }
+        // The four promotions of one pawn push share a destination, and the
+        // board only needs the square once.
+        if (!legalTargets_.contains(move.to)) {
+            legalTargets_.append(move.to);
+        }
+    }
+
+    emit selectionChanged(selected_, legalTargets_);
+}
+
+bool GameController::moveTo(chess::Square square)
+{
+    if (!chess::isValid(selected_) || !chess::isValid(square)) {
+        return false;
+    }
+
+    const chess::Square from = selected_;
+    const chess::MoveList legal = game_.legalMoves();
+
+    // A promotion is four moves sharing from and to. Ask which one rather than
+    // silently choosing a queen, and hold the move until the answer arrives.
+    if (legal.find(from, square, chess::PieceType::Queen).has_value()) {
+        pendingPromotion_ = chess::Move{from, square, chess::PieceType::Queen, chess::MoveKind::Quiet};
+        emit promotionRequested(from, square, sideToMove());
+        return true;
+    }
+
+    if (!game_.playFrom(from, square)) {
+        emit illegalMoveAttempted(from, square);
+        return false;
+    }
+
+    const chess::PlayedMove& played = game_.history().back();
+    emit moveMade(played.move, QString::fromStdString(played.san));
+    refreshAfterPositionChange();
+    return true;
+}
+
+void GameController::finishPromotion(chess::PieceType piece)
+{
+    if (!pendingPromotion_) {
+        return;
+    }
+
+    const chess::Move pending = *pendingPromotion_;
+    pendingPromotion_.reset();
+
+    // PieceType::None means the player dismissed the dialog. The pawn stays
+    // where it was and the selection is dropped.
+    if (piece == chess::PieceType::None) {
+        clearSelection();
+        return;
+    }
+
+    if (!game_.playFrom(pending.from, pending.to, piece)) {
+        emit illegalMoveAttempted(pending.from, pending.to);
+        clearSelection();
+        return;
+    }
+
+    const chess::PlayedMove& played = game_.history().back();
+    emit moveMade(played.move, QString::fromStdString(played.san));
+    refreshAfterPositionChange();
+}
+
+void GameController::undo()
+{
+    if (!game_.undo()) {
+        return;
+    }
+    pendingPromotion_.reset();
+    refreshAfterPositionChange();
+}
+
+void GameController::redo()
+{
+    if (!game_.redo()) {
+        return;
+    }
+    refreshAfterPositionChange();
+}
+
+void GameController::goToPly(std::size_t ply)
+{
+    if (!game_.goToPly(ply)) {
+        return;
+    }
+    pendingPromotion_.reset();
+    refreshAfterPositionChange();
+}
+
+void GameController::refreshAfterPositionChange()
+{
+    // Any change of position invalidates the selection, because the piece that
+    // was picked up has either moved or is no longer the side to move's.
+    selected_ = chess::Square::None;
+    legalTargets_.clear();
+
+    emit selectionChanged(selected_, legalTargets_);
+    emit positionChanged();
+
+    if (game_.isOver()) {
+        emit gameOver(game_.outcome(), game_.terminalReason());
+    }
+}
+
+bool GameController::isInCheck(chess::Color color) const
+{
+    return chess::isInCheck(position(), color);
+}
+
+QString GameController::statusText() const
+{
+    const chess::TerminalReason reason = game_.terminalReason();
+
+    switch (reason) {
+    case chess::TerminalReason::Checkmate:
+        return tr("Checkmate — %1 wins").arg(describeColor(chess::opposite(sideToMove())));
+    case chess::TerminalReason::Stalemate:
+        return tr("Stalemate — draw");
+    case chess::TerminalReason::FiftyMoveRule:
+        return tr("Draw — fifty moves without a capture or a pawn move");
+    case chess::TerminalReason::ThreefoldRepetition:
+        return tr("Draw — the same position three times");
+    case chess::TerminalReason::InsufficientMaterial:
+        return tr("Draw — neither side can force mate");
+    case chess::TerminalReason::None:
+        break;
+    }
+
+    if (isInCheck(sideToMove())) {
+        return tr("%1 to move — check").arg(describeColor(sideToMove()));
+    }
+    return tr("%1 to move").arg(describeColor(sideToMove()));
+}
+
+QString GameController::fen() const
+{
+    return QString::fromStdString(game_.fen());
+}
+
+} // namespace cines

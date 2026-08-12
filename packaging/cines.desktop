@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=CINES
+GenericName=Chess
+Comment=Two player chess
+Exec=cines
+Icon=cines
+Terminal=false
+Categories=Game;BoardGame;
+Keywords=chess;board;game;
