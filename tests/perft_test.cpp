@@ -45,6 +45,15 @@ constexpr std::string_view kPosition6
 
 class Perft : public testing::TestWithParam<PerftCase> { };
 
+// Named rather than written inline at each instantiation. INSTANTIATE_TEST_SUITE_P
+// expands its name-generator argument inside a function that already has a
+// parameter called "info", so an inline lambda taking "info" shadows it --
+// which gcc rejects under -Wshadow even though clang and MSVC accept it.
+std::string perftCaseName(const testing::TestParamInfo<PerftCase>& parameter)
+{
+    return std::string(parameter.param.name) + "_depth" + std::to_string(parameter.param.depth);
+}
+
 TEST_P(Perft, MatchesThePublishedNodeCount)
 {
     const PerftCase& testCase = GetParam();
@@ -70,9 +79,7 @@ INSTANTIATE_TEST_SUITE_P(Standard, Perft,
         PerftCase{"position5", kPosition5, 3, 62379}, PerftCase{"position5", kPosition5, 4, 2103487},
         PerftCase{"position6", kPosition6, 1, 46}, PerftCase{"position6", kPosition6, 2, 2079},
         PerftCase{"position6", kPosition6, 3, 89890}, PerftCase{"position6", kPosition6, 4, 3894594}),
-    [](const testing::TestParamInfo<PerftCase>& info) {
-        return std::string(info.param.name) + "_depth" + std::to_string(info.param.depth);
-    });
+    perftCaseName);
 
 #ifdef CINES_SLOW_TESTS
 // Hundreds of millions of nodes. Configure with -DCINES_SLOW_TESTS=ON to
@@ -80,9 +87,7 @@ INSTANTIATE_TEST_SUITE_P(Standard, Perft,
 INSTANTIATE_TEST_SUITE_P(Deep, Perft,
     testing::Values(PerftCase{"start", kStart, 6, 119060324}, PerftCase{"kiwipete", kKiwipete, 5, 193690690},
         PerftCase{"position3", kPosition3, 6, 11030083}, PerftCase{"position4", kPosition4, 5, 15833292}),
-    [](const testing::TestParamInfo<PerftCase>& info) {
-        return std::string(info.param.name) + "_depth" + std::to_string(info.param.depth);
-    });
+    perftCaseName);
 #endif
 
 TEST(Perft, DepthZeroCountsThePositionItself)
