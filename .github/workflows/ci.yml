@@ -95,11 +95,15 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
 
+      # Qt Svg is not listed here: in Qt 6 it ships inside the base desktop
+      # package rather than as an add-on, and naming it as a module makes
+      # aqtinstall fail with "the packages ['qtsvg'] were not found".
+      # Confirmed against `aqt list-qt linux desktop --modules 6.8.3
+      # linux_gcc_64`, which lists no svg entry.
       - name: Install Qt
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
           version: ${{ matrix.qt }}
-          modules: qtsvg
           cache: true
 
       # The Qt module ships an X server-less platform plugin, but on Linux it
