@@ -8,12 +8,16 @@
 #include <QMainWindow>
 
 class QCloseEvent;
+class QModelIndex;
+class QTableView;
 
 namespace cines {
 
 class BoardScene;
 class BoardView;
+class CapturedTray;
 class GameController;
+class MoveListModel;
 class PieceRenderer;
 
 // The window: a board, a status line, and the actions that act on the game.
@@ -39,9 +43,13 @@ private slots:
 
 private:
     void buildMenus();
+    QWidget* buildSidePanel();
     void copyFenToClipboard();
     void pasteFenFromClipboard();
+    void copyPgnToClipboard();
+    void showAbout();
     void toggleFlip();
+    void jumpToMove(const QModelIndex& index);
 
     // Applies the current choice, resolving Follow System against the desktop.
     void applyTheme();
@@ -51,9 +59,13 @@ private:
     void saveSettings() const;
 
     GameController* controller_;
-    PieceRenderer* promotionRenderer_;
+    PieceRenderer* pieceRenderer_;
     BoardScene* scene_;
     BoardView* view_;
+    MoveListModel* moveListModel_ = nullptr;
+    QTableView* moveListView_ = nullptr;
+    CapturedTray* whiteTray_ = nullptr;
+    CapturedTray* blackTray_ = nullptr;
 
     QAction* undoAction_ = nullptr;
     QAction* redoAction_ = nullptr;

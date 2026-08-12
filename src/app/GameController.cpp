@@ -2,9 +2,11 @@
 
 #include "chess/Fen.hpp"
 #include "chess/MoveGenerator.hpp"
+#include "chess/Pgn.hpp"
 #include "chess/Rules.hpp"
 
 #include <QCoreApplication>
+#include <QDate>
 
 namespace cines {
 namespace {
@@ -257,6 +259,15 @@ QString GameController::statusText() const
 QString GameController::fen() const
 {
     return QString::fromStdString(game_.fen());
+}
+
+QString GameController::pgn() const
+{
+    chess::pgn::Tags tags;
+    // The date the game was copied, in PGN's own form. Anything more would
+    // mean recording when the game started, which nothing else needs.
+    tags.date = QDate::currentDate().toString(QStringLiteral("yyyy.MM.dd")).toStdString();
+    return QString::fromStdString(chess::pgn::serialise(game_, tags));
 }
 
 } // namespace cines

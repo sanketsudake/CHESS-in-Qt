@@ -23,8 +23,12 @@ qt_add_library(cines_app STATIC
   BoardView.cpp
   BoardView.hpp
   BoardGeometry.hpp
+  CapturedTray.cpp
+  CapturedTray.hpp
   GameController.cpp
   GameController.hpp
+  MoveListModel.cpp
+  MoveListModel.hpp
   PieceRenderer.cpp
   PieceRenderer.hpp
   PromotionDialog.cpp

@@ -30,6 +30,10 @@ public:
     explicit GameController(QObject* parent = nullptr);
 
     [[nodiscard]] const chess::Position& position() const { return game_.position(); }
+
+    // The position the game began from, which is not always the usual one.
+    // The move list numbers from it and the captured tray counts against it.
+    [[nodiscard]] const chess::Position& startPosition() const { return game_.startPosition(); }
     [[nodiscard]] chess::Color sideToMove() const { return game_.sideToMove(); }
     [[nodiscard]] const std::vector<chess::PlayedMove>& history() const { return game_.history(); }
     [[nodiscard]] std::size_t currentPly() const { return game_.currentPly(); }
@@ -56,6 +60,10 @@ public:
     [[nodiscard]] QString statusText() const;
 
     [[nodiscard]] QString fen() const;
+
+    // The whole game as PGN, for "copy game". Uses the player names below in
+    // the tag pairs.
+    [[nodiscard]] QString pgn() const;
 
 public slots:
     void newGame();

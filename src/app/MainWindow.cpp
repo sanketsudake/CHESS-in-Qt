@@ -2,7 +2,9 @@
 
 #include "BoardScene.hpp"
 #include "BoardView.hpp"
+#include "CapturedTray.hpp"
 #include "GameController.hpp"
+#include "MoveListModel.hpp"
 #include "PieceRenderer.hpp"
 #include "PromotionDialog.hpp"
 
@@ -11,11 +13,15 @@
 #include <QClipboard>
 #include <QCloseEvent>
 #include <QGuiApplication>
+#include <QHBoxLayout>
+#include <QHeaderView>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QSettings>
 #include <QStatusBar>
 #include <QStyleHints>
+#include <QTableView>
+#include <QVBoxLayout>
 
 #include <array>
 
@@ -24,12 +30,20 @@ namespace cines {
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
     , controller_(new GameController(this))
-    , promotionRenderer_(new PieceRenderer(this))
+    , pieceRenderer_(new PieceRenderer(this))
     , scene_(new BoardScene(*controller_, this))
     , view_(new BoardView(*controller_, *scene_, this))
 {
     setWindowTitle(tr("CINES"));
-    setCentralWidget(view_);
+
+    // The board keeps whatever space is left after the panel and stays square
+    // inside it; the panel is the part that gives way when the window narrows.
+    auto* central = new QWidget(this);
+    auto* layout = new QHBoxLayout(central);
+    layout->addWidget(view_, 1);
+    layout->addWidget(buildSidePanel(), 0);
+    setCentralWidget(central);
+
     statusBar()->showMessage(controller_->statusText());
 
     connect(controller_, &GameController::positionChanged, this, &MainWindow::onPositionChanged);
@@ -66,6 +80,52 @@ MainWindow::MainWindow(QWidget* parent)
     applyTheme();
 }
 
+QWidget* MainWindow::buildSidePanel()
+{
+    auto* panel = new QWidget(this);
+    panel->setFixedWidth(240);
+
+    auto* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(8, 0, 0, 0);
+
+    blackTray_ = new CapturedTray(*controller_, *pieceRenderer_, chess::Color::Black, panel);
+    whiteTray_ = new CapturedTray(*controller_, *pieceRenderer_, chess::Color::White, panel);
+
+    moveListModel_ = new MoveListModel(*controller_, this);
+    moveListView_ = new QTableView(panel);
+    moveListView_->setModel(moveListModel_);
+    moveListView_->setSelectionBehavior(QAbstractItemView::SelectItems);
+    moveListView_->setSelectionMode(QAbstractItemView::SingleSelection);
+    moveListView_->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    moveListView_->verticalHeader()->setVisible(false);
+    moveListView_->setShowGrid(false);
+    moveListView_->horizontalHeader()->setSectionResizeMode(
+        MoveListModel::NumberColumn, QHeaderView::ResizeToContents);
+    moveListView_->horizontalHeader()->setSectionResizeMode(MoveListModel::WhiteColumn, QHeaderView::Stretch);
+    moveListView_->horizontalHeader()->setSectionResizeMode(MoveListModel::BlackColumn, QHeaderView::Stretch);
+
+    // Clicking a move rewinds the board to it without discarding anything, so
+    // the game can be read backwards and then continued.
+    connect(moveListView_, &QTableView::clicked, this, &MainWindow::jumpToMove);
+
+    // The trays sit either side of the move list, each next to the player it
+    // describes, with Black on top because that is where Black sits.
+    layout->addWidget(blackTray_);
+    layout->addWidget(moveListView_, 1);
+    layout->addWidget(whiteTray_);
+
+    return panel;
+}
+
+void MainWindow::jumpToMove(const QModelIndex& index)
+{
+    const std::size_t ply = moveListModel_->plyAt(index);
+    if (ply == 0) {
+        return;
+    }
+    controller_->goToPly(ply);
+}
+
 void MainWindow::buildMenus()
 {
     QMenu* gameMenu = menuBar()->addMenu(tr("&Game"));
@@ -93,6 +153,10 @@ void MainWindow::buildMenus()
     QAction* pasteFen = gameMenu->addAction(tr("&Paste Position (FEN)"));
     pasteFen->setShortcut(QKeySequence::Paste);
     connect(pasteFen, &QAction::triggered, this, &MainWindow::pasteFenFromClipboard);
+
+    QAction* copyPgn = gameMenu->addAction(tr("Copy &Game (PGN)"));
+    copyPgn->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_C));
+    connect(copyPgn, &QAction::triggered, this, &MainWindow::copyPgnToClipboard);
 
     QMenu* viewMenu = menuBar()->addMenu(tr("&View"));
 
@@ -132,7 +196,28 @@ void MainWindow::buildMenus()
 
     themeActions_ = themeGroup;
 
+    QMenu* helpMenu = menuBar()->addMenu(tr("&Help"));
+    QAction* about = helpMenu->addAction(tr("&About CINES"));
+    connect(about, &QAction::triggered, this, &MainWindow::showAbout);
+
     onPositionChanged();
+}
+
+void MainWindow::copyPgnToClipboard()
+{
+    QApplication::clipboard()->setText(controller_->pgn());
+    statusBar()->showMessage(tr("Game copied"), 2000);
+}
+
+void MainWindow::showAbout()
+{
+    QMessageBox::about(this, tr("About CINES"),
+        tr("<h3>CINES %1</h3>"
+           "<p>Two player chess.</p>"
+           "<p>Free software under the GNU General Public License, version 3 "
+           "or later. Originally written in 2012 by Sagar Rakshe, Nisarg Patel, "
+           "Sanket Sudake and Nikhil Pachpande.</p>")
+            .arg(QCoreApplication::applicationVersion()));
 }
 
 void MainWindow::setThemeChoice(ThemeChoice choice)
@@ -206,6 +291,17 @@ void MainWindow::onPositionChanged()
     scene_->rebuildPieces();
     statusBar()->showMessage(controller_->statusText());
 
+    // The panel is derived from the same position, so it is refreshed here
+    // rather than kept in step by its own signal wiring.
+    if (moveListModel_ != nullptr) {
+        moveListModel_->refresh();
+        moveListView_->scrollTo(moveListModel_->indexOfCurrentPly());
+    }
+    if (whiteTray_ != nullptr) {
+        whiteTray_->refresh();
+        blackTray_->refresh();
+    }
+
     if (undoAction_ != nullptr) {
         undoAction_->setEnabled(controller_->canUndo());
     }
@@ -229,7 +325,7 @@ void MainWindow::onPromotionRequested(chess::Square from, chess::Square to, ches
     Q_UNUSED(from);
     Q_UNUSED(to);
 
-    PromotionDialog dialog(color, *promotionRenderer_, this);
+    PromotionDialog dialog(color, *pieceRenderer_, this);
     dialog.exec();
 
     // A dismissed dialog yields PieceType::None, which the controller reads as
