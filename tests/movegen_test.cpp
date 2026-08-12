@@ -325,11 +325,24 @@ TEST(MoveList, FindMatchesOnFromToAndPromotion)
     const Position position = mustParse("8/4P3/8/8/8/8/8/K6k w - - 0 1");
     const MoveList moves = generateLegalMoves(position);
 
-    ASSERT_NE(moves.find(Square::E7, Square::E8, PieceType::Queen), nullptr);
-    ASSERT_NE(moves.find(Square::E7, Square::E8, PieceType::Knight), nullptr);
+    ASSERT_TRUE(moves.find(Square::E7, Square::E8, PieceType::Queen).has_value());
+    ASSERT_TRUE(moves.find(Square::E7, Square::E8, PieceType::Knight).has_value());
     EXPECT_EQ(moves.find(Square::E7, Square::E8, PieceType::Queen)->promotion, PieceType::Queen);
-    EXPECT_EQ(moves.find(Square::E7, Square::E8), nullptr) << "a promotion needs its piece named";
-    EXPECT_EQ(moves.find(Square::A1, Square::A2, PieceType::Queen), nullptr);
+    EXPECT_FALSE(moves.find(Square::E7, Square::E8).has_value()) << "a promotion needs its piece named";
+    EXPECT_FALSE(moves.find(Square::A1, Square::A2, PieceType::Queen).has_value());
+}
+
+// find returns by value on purpose. Writing the call against a temporary list
+// is the natural thing to do, and a returned pointer would dangle at the
+// semicolon. Address sanitizer caught exactly this in Game::play.
+TEST(MoveList, FindSurvivesBeingCalledOnATemporaryList)
+{
+    const Position position = mustParse("8/4P3/8/8/8/8/8/K6k w - - 0 1");
+    const auto found = generateLegalMoves(position).find(Square::E7, Square::E8, PieceType::Queen);
+
+    ASSERT_TRUE(found.has_value());
+    EXPECT_EQ(found->from, Square::E7);
+    EXPECT_EQ(found->promotion, PieceType::Queen);
 }
 
 TEST(ApplyMove, FiftyMoveCounterResetsOnPawnMovesAndCaptures)

@@ -158,14 +158,14 @@ void generateCastles(const Position& position, MoveList& moves)
 
 } // namespace
 
-const Move* MoveList::find(Square from, Square to, PieceType promotion) const
+std::optional<Move> MoveList::find(Square from, Square to, PieceType promotion) const
 {
     for (const Move& move : *this) {
         if (move.from == from && move.to == to && move.promotion == promotion) {
-            return &move;
+            return move;
         }
     }
-    return nullptr;
+    return std::nullopt;
 }
 
 MoveList generatePseudoLegalMoves(const Position& position)

@@ -50,8 +50,11 @@ Position Game::repetitionKeyFor(const Position& position)
 
 bool Game::play(const Move& move)
 {
-    const Move* legal = legalMoves().find(move.from, move.to, move.promotion);
-    if (legal == nullptr) {
+    // Look the move up rather than trusting the caller's kind: a click on a
+    // board produces two squares and nothing more, and only the generator
+    // knows whether those squares mean a castle or an en passant capture.
+    const std::optional<Move> legal = legalMoves().find(move.from, move.to, move.promotion);
+    if (!legal) {
         return false;
     }
 
@@ -73,11 +76,9 @@ bool Game::play(const Move& move)
 
 bool Game::playFrom(Square from, Square to, PieceType promotion)
 {
-    const Move* legal = legalMoves().find(from, to, promotion);
-    if (legal == nullptr) {
-        return false;
-    }
-    return play(*legal);
+    // Move identity is from, to and promotion, so the placeholder kind here is
+    // replaced by the real one during the lookup in play.
+    return play(Move{from, to, promotion, MoveKind::Quiet});
 }
 
 bool Game::playSan(std::string_view text)

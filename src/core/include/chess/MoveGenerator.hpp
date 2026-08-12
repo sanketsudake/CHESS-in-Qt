@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 
 namespace chess {
 
@@ -32,11 +33,17 @@ public:
     // Looks a move up by from, to and promotion. This is how the user
     // interface turns a click, which knows nothing about castling or en
     // passant, into a move that carries the right kind.
-    [[nodiscard]] const Move* find(Square from, Square to, PieceType promotion = PieceType::None) const;
+    //
+    // Returns the move by value rather than a pointer into this list. A Move
+    // is four bytes, and the obvious way to write the call is
+    // generateLegalMoves(position).find(...), where a returned pointer would
+    // dangle the moment the temporary list died.
+    [[nodiscard]] std::optional<Move> find(
+        Square from, Square to, PieceType promotion = PieceType::None) const;
 
     [[nodiscard]] bool contains(Square from, Square to, PieceType promotion = PieceType::None) const
     {
-        return find(from, to, promotion) != nullptr;
+        return find(from, to, promotion).has_value();
     }
 
 private:
