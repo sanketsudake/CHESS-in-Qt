@@ -32,6 +32,13 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
 
+public slots:
+    // Abandons a drag in progress and puts the piece back. The board calls
+    // this when it rebuilds -- a flip or a theme change deletes the item being
+    // dragged, and a view that still believed the drag was live would play a
+    // move to wherever the button happened to come up.
+    void cancelDrag();
+
 private:
     [[nodiscard]] chess::Square squareUnder(const QPoint& viewPosition) const;
     void fitBoard();
@@ -42,6 +49,12 @@ private:
     // Where the press landed, so a release on the same square reads as a click
     // rather than as a zero-length drag.
     chess::Square pressedSquare_ = chess::Square::None;
+
+    // The press position itself, in view coordinates. The drag threshold is
+    // measured from here: measuring from the square's centre instead would
+    // mean any press away from dead centre already exceeded the threshold.
+    QPoint pressedAt_;
+
     bool dragging_ = false;
 };
 

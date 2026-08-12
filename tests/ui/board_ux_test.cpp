@@ -217,6 +217,60 @@ TEST(BoardAnimation, ARebuildWithNoNotedMoveDoesNotAnimate)
     EXPECT_TRUE(geometry::squareRect(Square::E2, false).contains(drawn.center()));
 }
 
+// A piece with nowhere to go is not selected at all. Highlighting it would
+// invite the player to drag it around only for every drop to be refused, and
+// the documented contract says as much.
+TEST(GameControllerSelection, APieceWithNoLegalMoveIsNotSelected)
+{
+    GameController controller;
+    // The knight on e2 is pinned to the king on e1 by the rook on e8.
+    ASSERT_TRUE(controller.setPositionFromFen(QStringLiteral("4r2k/8/8/8/8/8/4N3/4K3 w - - 0 1")));
+
+    QSignalSpy selectionSpy(&controller, &GameController::selectionChanged);
+    controller.selectSquare(Square::E2);
+
+    EXPECT_EQ(controller.selectedSquare(), Square::None);
+    EXPECT_TRUE(controller.legalTargets().isEmpty());
+    EXPECT_EQ(selectionSpy.count(), 0) << "nothing changed, so nothing was announced";
+}
+
+TEST(GameControllerSelection, APieceThatCanMoveIsStillSelected)
+{
+    GameController controller;
+    controller.selectSquare(Square::E2);
+    EXPECT_EQ(controller.selectedSquare(), Square::E2);
+    EXPECT_FALSE(controller.legalTargets().isEmpty());
+}
+
+// A rebuild deletes the item being dragged. Whoever is dragging has to be told,
+// or the view keeps believing the drag is live and plays a move when the button
+// finally comes up.
+TEST(BoardScene, RebuildingDuringADragAnnouncesThatThePieceIsGone)
+{
+    GameController controller;
+    BoardScene scene(controller);
+    QSignalSpy invalidatedSpy(&scene, &BoardScene::draggedPieceInvalidated);
+
+    scene.liftPiece(Square::E2);
+    ASSERT_TRUE(scene.hasLiftedPiece());
+
+    scene.setFlipped(true);
+
+    EXPECT_EQ(invalidatedSpy.count(), 1);
+    EXPECT_FALSE(scene.hasLiftedPiece());
+}
+
+TEST(BoardScene, RebuildingWithNoDragInProgressAnnouncesNothing)
+{
+    GameController controller;
+    BoardScene scene(controller);
+    QSignalSpy invalidatedSpy(&scene, &BoardScene::draggedPieceInvalidated);
+
+    scene.rebuildPieces();
+
+    EXPECT_EQ(invalidatedSpy.count(), 0);
+}
+
 TEST(GameControllerAnimation, UndoAnnouncesTheMoveItTookBack)
 {
     GameController controller;

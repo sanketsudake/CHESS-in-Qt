@@ -31,6 +31,8 @@ BoardView::BoardView(GameController& controller, BoardScene& scene, QWidget* par
     // The board grows and shrinks with the window rather than scrolling, so a
     // drag must not be interpreted as a rubber band selection.
     setDragMode(QGraphicsView::NoDrag);
+
+    connect(&scene, &BoardScene::draggedPieceInvalidated, this, &BoardView::cancelDrag);
 }
 
 QSize BoardView::sizeHint() const
@@ -63,6 +65,7 @@ void BoardView::mousePressEvent(QMouseEvent* event)
 
     const chess::Square square = squareUnder(event->pos());
     pressedSquare_ = square;
+    pressedAt_ = event->pos();
     dragging_ = false;
 
     // Pressing a legal target while a piece is selected completes the move,
@@ -85,13 +88,11 @@ void BoardView::mouseMoveEvent(QMouseEvent* event)
     }
 
     if (!dragging_) {
-        const QPointF pressedCentre = geometry::squareCentre(pressedSquare_, boardScene_.isFlipped());
-        const QPointF here = mapToScene(event->pos());
-        // Compare in scene units so the threshold means the same thing at any
-        // window size.
-        const qreal scale = transform().m11();
-        const qreal movedInPixels = QLineF(pressedCentre, here).length() * (scale > 0.0 ? scale : 1.0);
-        if (movedInPixels < kDragThresholdPixels) {
+        // Measured from where the button actually went down, in view pixels.
+        // Measuring from the square's centre would mean any press away from
+        // dead centre was already past the threshold, so a plain click would
+        // pick the piece up and put it straight back.
+        if ((event->pos() - pressedAt_).manhattanLength() < kDragThresholdPixels) {
             return;
         }
         boardScene_.liftPiece(pressedSquare_);
@@ -102,9 +103,27 @@ void BoardView::mouseMoveEvent(QMouseEvent* event)
     event->accept();
 }
 
+void BoardView::cancelDrag()
+{
+    if (dragging_) {
+        boardScene_.dropLiftedPiece();
+    }
+    dragging_ = false;
+    pressedSquare_ = chess::Square::None;
+}
+
 void BoardView::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (event->button() != Qt::LeftButton || !dragging_) {
+    if (event->button() != Qt::LeftButton) {
+        // A right or middle button coming up during a drag ends it. Leaving
+        // the drag live would let the eventual left release play a move to
+        // wherever the cursor had wandered.
+        cancelDrag();
+        QGraphicsView::mouseReleaseEvent(event);
+        return;
+    }
+
+    if (!dragging_) {
         pressedSquare_ = chess::Square::None;
         QGraphicsView::mouseReleaseEvent(event);
         return;

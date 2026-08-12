@@ -58,6 +58,11 @@ public:
     void setAnimationEnabled(bool enabled) { animationEnabled_ = enabled; }
     [[nodiscard]] bool isAnimationEnabled() const { return animationEnabled_; }
 
+signals:
+    // A rebuild has deleted every piece item, including any the view had
+    // picked up. Whoever is dragging must let go.
+    void draggedPieceInvalidated();
+
 public slots:
     void rebuildPieces();
     void updateSelection(chess::Square selected, const QList<chess::Square>& targets);

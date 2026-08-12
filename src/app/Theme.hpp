@@ -29,9 +29,6 @@ struct Theme {
     // Drawn behind a king that is attacked.
     QColor check;
 
-    QColor boardBorder;
-    QColor coordinateText;
-
     [[nodiscard]] static Theme light();
     [[nodiscard]] static Theme dark();
 

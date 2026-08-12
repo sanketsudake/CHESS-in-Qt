@@ -88,8 +88,7 @@ void GameController::clearSelection()
 
 void GameController::setSelection(chess::Square square)
 {
-    selected_ = square;
-    legalTargets_.clear();
+    QList<chess::Square> targets;
 
     for (const chess::Move& move : game_.legalMoves()) {
         if (move.from != square) {
@@ -97,11 +96,21 @@ void GameController::setSelection(chess::Square square)
         }
         // The four promotions of one pawn push share a destination, and the
         // board only needs the square once.
-        if (!legalTargets_.contains(move.to)) {
-            legalTargets_.append(move.to);
+        if (!targets.contains(move.to)) {
+            targets.append(move.to);
         }
     }
 
+    // A piece with nowhere to go -- a fully pinned knight, say -- is not
+    // selected at all. Highlighting it would invite the player to drag it
+    // around only for every drop to be refused.
+    if (targets.isEmpty()) {
+        clearSelection();
+        return;
+    }
+
+    selected_ = square;
+    legalTargets_ = targets;
     emit selectionChanged(selected_, legalTargets_);
 }
 

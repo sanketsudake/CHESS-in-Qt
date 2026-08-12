@@ -192,9 +192,15 @@ QGraphicsSvgItem* BoardScene::pieceItemAt(chess::Square square) const
 
 void BoardScene::rebuildPieces()
 {
-    // A lifted piece belongs to a drag that the new position has invalidated.
+    // A lifted piece belongs to a drag whose item is about to be deleted. Tell
+    // whoever was dragging, or they will keep believing the drag is live and
+    // play a move when the button eventually comes up.
+    const bool wasDragging = liftedItem_ != nullptr;
     liftedItem_ = nullptr;
     liftedFrom_ = chess::Square::None;
+    if (wasDragging) {
+        emit draggedPieceInvalidated();
+    }
 
     for (QGraphicsSvgItem* item : pieceItems_) {
         removeItem(item);

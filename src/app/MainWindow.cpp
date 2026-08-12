@@ -43,6 +43,16 @@ MainWindow::MainWindow(QWidget* parent)
         [this](const chess::Move& move, const QString&) { scene_->noteMovePlayed(move); });
     connect(controller_, &GameController::moveUndone, scene_, &BoardScene::noteMoveUndone);
 
+    // Without this a refused move just snaps back in silence, and a player who
+    // has missed a pin repeats the same drag with no idea why it will not go.
+    connect(controller_, &GameController::illegalMoveAttempted, this,
+        [this](chess::Square from, chess::Square to) {
+            statusBar()->showMessage(tr("%1 to %2 is not a legal move")
+                                         .arg(QString::fromStdString(chess::toString(from)),
+                                             QString::fromStdString(chess::toString(to))),
+                2500);
+        });
+
     // Following the desktop means following it as it changes, not only at
     // start-up.
     connect(QGuiApplication::styleHints(), &QStyleHints::colorSchemeChanged, this, [this] {
@@ -168,11 +178,12 @@ void MainWindow::restoreSettings()
         flipAction_->setChecked(flipped);
     }
 
+    // restoreGeometry reports whether the saved bytes were usable -- they may
+    // have been written by another version, or name a screen that is no longer
+    // attached. Falling back to a default size beats opening off-screen.
     const QByteArray geometry = settings.value(QStringLiteral("window/geometry")).toByteArray();
-    if (geometry.isEmpty()) {
-        resize(720, 780);
-    } else {
-        restoreGeometry(geometry);
+    if (geometry.isEmpty() || !restoreGeometry(geometry)) {
+        resize(980, 800);
     }
 }
 

@@ -8,25 +8,37 @@
 #include <QSvgRenderer>
 #include <QVBoxLayout>
 
+#include <array>
+#include <cmath>
+
 namespace cines {
 namespace {
 
 constexpr int kButtonSize = 72;
 constexpr int kIconSize = 60;
 
-// The SVGs are the same artwork the board uses, rasterised once at the size
-// the button needs.
-QIcon iconFor(const PieceRenderer& renderer, chess::Piece piece)
+// The SVGs are the same artwork the board uses, rasterised at the size the
+// button needs.
+//
+// Rasterised at the display's own pixel density rather than at logical size:
+// on a high density screen a 60x60 pixmap would be stretched to 120 device
+// pixels and look soft next to a board that renders from SVG at any scale.
+QIcon iconFor(const PieceRenderer& renderer, chess::Piece piece, qreal pixelRatio)
 {
     QSvgRenderer* svg = renderer.rendererFor(piece);
     if (svg == nullptr) {
         return {};
     }
 
-    QPixmap pixmap(kIconSize, kIconSize);
+    const auto side = static_cast<int>(std::lround(kIconSize * pixelRatio));
+    QPixmap pixmap(side, side);
     pixmap.fill(Qt::transparent);
-    QPainter painter(&pixmap);
-    svg->render(&painter, QRectF(0, 0, kIconSize, kIconSize));
+    {
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing, true);
+        svg->render(&painter, QRectF(0, 0, side, side));
+    }
+    pixmap.setDevicePixelRatio(pixelRatio);
     return QIcon(pixmap);
 }
 
@@ -56,7 +68,7 @@ PromotionDialog::PromotionDialog(chess::Color color, const PieceRenderer& render
 
     for (const Choice& choice : choices) {
         auto* button = new QPushButton(this);
-        button->setIcon(iconFor(renderer, chess::Piece{choice.type, color}));
+        button->setIcon(iconFor(renderer, chess::Piece{choice.type, color}, devicePixelRatioF()));
         button->setIconSize(QSize(kIconSize, kIconSize));
         button->setFixedSize(kButtonSize, kButtonSize);
         button->setToolTip(choice.shortcut);
