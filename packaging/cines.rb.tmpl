@@ -17,7 +17,7 @@ cask "cines" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :monterey"
+  depends_on macos: :monterey
 
   app "CINES.app"
 
