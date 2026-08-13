@@ -1,3 +1,21 @@
-# Ignore temporary files generated
-build/*
+# Build output
+build/
 Makefile
+
+# CMake
+CMakeUserPresets.json
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# Tooling caches
+.cache/
+
+# Editors
+.vscode/
+.idea/
+*.user
+
+# macOS
+.DS_Store

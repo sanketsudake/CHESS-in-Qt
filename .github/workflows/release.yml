@@ -1,0 +1,357 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, without the leading v'
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  # Not the 6.8 LTS. Apple removed the AGL framework in the macOS 15 SDK and
+  # Qt referenced it until 6.8.4, which is a commercial-only release -- the
+  # open-source 6.8 series stops at 6.8.3 and cannot link. The application
+  # still builds against 6.8 in CI on Linux and Windows, so the floor declared
+  # in CMake is exercised on every pull request.
+  QT_VERSION: '6.9.3'
+
+jobs:
+  # One place decides the version, so the artifacts, the release and the cask
+  # cannot disagree about what was built.
+  version:
+    name: Resolve version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.pick.outputs.version }}
+      prerelease: ${{ steps.pick.outputs.prerelease }}
+    steps:
+      - id: pick
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "$INPUT_VERSION" ]; then
+            version="$INPUT_VERSION"
+          else
+            version="${REF_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # A version with a suffix -- rc, beta, alpha -- is a pre-release.
+          # This is what keeps a trial tag from replacing the cask real users
+          # install, so it must not be able to fail open.
+          #
+          # It is a case statement rather than a grep because the obvious grep
+          # for this does not work: the pattern '-(rc|beta|alpha)' begins with
+          # a dash, so grep reads it as an option, errors, and returns
+          # non-zero -- which is indistinguishable from "no match". A
+          # pre-release was published as a full release, and the cask was
+          # updated, before that was noticed. Shell pattern matching cannot
+          # misread its own argument.
+          case "$version" in
+            *-rc*|*-beta*|*-alpha*) prerelease=true ;;
+            *)                      prerelease=false ;;
+          esac
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+          echo "version=$version prerelease=$prerelease"
+
+  # Tagging does not prove the commit was ever tested -- a tag can be pushed at
+  # any commit, including one whose CI never ran or went red. The three
+  # packaging jobs wait on this, so a broken commit cannot be published.
+  test:
+    name: Test the tagged commit
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      # The rules carry the tests worth gating on and link no Qt, so this
+      # costs under a minute rather than a Qt install per platform.
+      - name: Build and test the rules
+        run: |
+          cmake --preset ci -DCINES_BUILD_APP=OFF
+          cmake --build --preset ci
+          ctest --preset ci
+
+  linux:
+    name: Linux AppImage
+    needs: [version, test]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+
+      - name: Install platform libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libfuse2
+
+      - name: Build and install into an AppDir
+        run: |
+          cmake --preset release \
+            -DCINES_VERSION="${{ needs.version.outputs.version }}" \
+            -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build --preset release
+          DESTDIR="$PWD/AppDir" cmake --install build/release
+
+      - name: Package
+        env:
+          # linuxdeploy cannot always tell that QtSvg is used, and every piece
+          # on the board is drawn through it. Without this the AppImage starts
+          # and shows an empty board.
+          EXTRA_QT_MODULES: svg
+          # The linuxdeploy tools are themselves AppImages, and a runner has no
+          # FUSE by default. libfuse2 is installed above; this is the belt to
+          # that pair of braces.
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          OUTPUT: CINES-${{ needs.version.outputs.version }}-x86_64.AppImage
+        run: |
+          set -euo pipefail
+
+          # The tools are themselves AppImages, so they live in their own
+          # directory -- left beside the output they would be picked up by any
+          # glob looking for the AppImage that was just built. The plugin has
+          # to be named exactly linuxdeploy-plugin-qt on PATH for --plugin qt
+          # to find it.
+          mkdir -p .deploy-tools
+          curl -fsSL -o .deploy-tools/linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fsSL -o .deploy-tools/linuxdeploy-plugin-qt \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x .deploy-tools/linuxdeploy .deploy-tools/linuxdeploy-plugin-qt
+          export PATH="$PWD/.deploy-tools:$PATH"
+
+          cp LICENSE COPYING AppDir/
+
+          # No rename afterwards: the appimage plugin reads $OUTPUT and writes
+          # exactly that name. Renaming it was renaming a file onto itself,
+          # which is an error -- and the first attempt hid that behind
+          # 2>/dev/null and then moved the wrong files.
+          linuxdeploy --appdir AppDir --plugin qt --output appimage
+
+          if [ ! -f "$OUTPUT" ]; then
+            echo "linuxdeploy reported success but $OUTPUT is not there:" >&2
+            ls -la ./*.AppImage >&2 || true
+            exit 1
+          fi
+          ls -la "$OUTPUT"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: linux
+          path: CINES-*.AppImage
+          if-no-files-found: error
+
+  windows:
+    name: Windows zip
+    needs: [version, test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      - uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+
+      - name: Build
+        run: |
+          cmake --preset release -DCINES_VERSION="${{ needs.version.outputs.version }}"
+          cmake --build --preset release
+
+      - name: Package
+        shell: bash
+        env:
+          NAME: CINES-${{ needs.version.outputs.version }}-windows-x64
+        run: |
+          mkdir -p "$NAME"
+          cp build/release/src/app/cines.exe "$NAME/"
+          cp LICENSE COPYING "$NAME/"
+          windeployqt --release --no-translations --no-system-d3d-compiler "$NAME/cines.exe"
+          7z a "$NAME.zip" "$NAME"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows
+          path: CINES-*.zip
+          if-no-files-found: error
+
+  macos:
+    name: macOS disk image
+    needs: [version, test]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: ${{ env.QT_VERSION }}
+          cache: true
+
+      # One universal binary rather than a build per architecture. Qt's macOS
+      # packages are universal, so this costs one job instead of two and gives
+      # the cask a single url and checksum instead of per-architecture blocks.
+      # It also sidesteps the Intel runner question entirely: macos-13 is
+      # retired and macos-14 is being withdrawn.
+      - name: Build universal
+        run: |
+          cmake --preset release \
+            -DCINES_VERSION="${{ needs.version.outputs.version }}" \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake --build --preset release
+
+      # Deploy, then sign, then image -- rather than macdeployqt -dmg, which
+      # does all three in one step and signs before the licence files are
+      # added. Doing it in order also makes the signature verifiable here
+      # instead of at install time on somebody else's machine.
+      - name: Package
+        env:
+          APP: build/release/src/app/CINES.app
+          NAME: CINES-${{ needs.version.outputs.version }}-macos-universal
+        run: |
+          macdeployqt "$APP"
+          cp LICENSE COPYING "$APP/Contents/Resources/"
+
+          # Ad hoc: there is no Apple Developer ID for this project. It gives
+          # a consistent signature rather than a trusted one, which is what
+          # the cask's quarantine handling and the right-click-Open note in
+          # the release body are for.
+          codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
+
+          hdiutil create -volname CINES -srcfolder "$APP" -ov -format UDZO "$NAME.dmg"
+
+      - name: Check the bundle is self-contained and universal
+        env:
+          APP: build/release/src/app/CINES.app
+        run: |
+          # Both arches, or the Intel half of "universal" is a fiction.
+          lipo -archs "$APP/Contents/MacOS/CINES" | tee /dev/stderr | grep -q x86_64
+          lipo -archs "$APP/Contents/MacOS/CINES" | grep -q arm64
+
+          # Qt must come from inside the bundle. A stray absolute path here is
+          # an application that only runs on a machine that already has Qt.
+          if otool -L "$APP/Contents/MacOS/CINES" | grep -E '/opt/homebrew|/usr/local/opt|/Users/'; then
+            echo "the binary still points outside the bundle" >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos
+          path: CINES-*.dmg
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [version, linux, windows, macos]
+    runs-on: ubuntu-24.04
+    outputs:
+      dmg_sha256: ${{ steps.checksums.outputs.dmg_sha256 }}
+      dmg_name: ${{ steps.checksums.outputs.dmg_name }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - id: checksums
+        run: |
+          cd artifacts
+          sha256sum ./* > checksums.txt
+          cat checksums.txt
+
+          # The cask needs the disk image's checksum, and computing it here
+          # means the number published and the number installed come from the
+          # same bytes.
+          dmg=$(ls ./*.dmg)
+          echo "dmg_name=$(basename "$dmg")" >> "$GITHUB_OUTPUT"
+          echo "dmg_sha256=$(sha256sum "$dmg" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          prerelease: ${{ needs.version.outputs.prerelease == 'true' }}
+          body: |
+            ## Installing
+
+            **macOS** — `brew install --cask sanketsudake/tap/cines`, or open the
+            disk image below.
+
+            **Linux** — the AppImage; `chmod +x` and run it.
+
+            **Windows** — the zip; unpack and run `cines.exe`.
+
+            The macOS build is not signed with an Apple Developer ID. Homebrew
+            deals with that for you. If you open the disk image directly,
+            launch the application the first time with right-click → Open.
+
+            Checksums are in `checksums.txt`.
+
+  homebrew:
+    name: Update Homebrew tap
+    needs: [version, publish]
+    # A trial tag must not replace the cask that real users install.
+    if: needs.version.outputs.prerelease != 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check out the tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: sanketsudake/homebrew-tap
+          path: tap
+          # A fine-grained token with contents:write on the tap repository only.
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Render the cask
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          DMG_NAME: ${{ needs.publish.outputs.dmg_name }}
+          DMG_SHA256: ${{ needs.publish.outputs.dmg_sha256 }}
+        run: |
+          sed -e "s|@VERSION@|$VERSION|g" \
+              -e "s|@DMG_NAME@|$DMG_NAME|g" \
+              -e "s|@SHA256@|$DMG_SHA256|g" \
+              packaging/cines.rb.tmpl > tap/Casks/cines.rb
+          cat tap/Casks/cines.rb
+
+      - name: Commit
+        working-directory: tap
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Casks/cines.rb
+          # Nothing to do when the release is a re-run of one already published.
+          git diff --cached --quiet && exit 0
+          git commit -m "cines $VERSION"
+          git push

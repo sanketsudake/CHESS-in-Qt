@@ -1,0 +1,201 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# A new push to the same branch supersedes the run in flight.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a new upstream release cannot turn a green branch red overnight,
+  # and so contributors can reproduce the lint result exactly:
+  #   pip install clang-format==22.1.8 clang-tidy==22.1.8
+  LLVM_TOOLS_VERSION: 22.1.8
+
+jobs:
+  lint:
+    name: Lint (format + tidy)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - name: Install pinned LLVM tools
+        run: pip install "clang-format==${LLVM_TOOLS_VERSION}" "clang-tidy==${LLVM_TOOLS_VERSION}"
+
+      # Everything git tracks, rather than a hand-written list of directories
+      # that a new or nested one would silently escape. googletest is fetched
+      # into the build directory, so it is not tracked and not checked.
+      - name: Check formatting
+        run: |
+          clang-format --version
+          git ls-files '*.cpp' '*.hpp' | xargs clang-format --dry-run --Werror
+
+      # clang-tidy needs a compilation database, so configure first. Building is
+      # not required -- the CI preset exports compile_commands.json at configure
+      # time. Configure with clang rather than the default gcc so the recorded
+      # flags are ones clang-tidy's own driver understands.
+      #
+      # The application is left out: clang-tidy is pointed at the rules only
+      # (see HeaderFilterRegex in .clang-tidy), and skipping it means this job
+      # needs no Qt.
+      - name: Configure for the compilation database
+        env:
+          CC: clang
+          CXX: clang++
+        run: cmake --preset ci -DCINES_BUILD_APP=OFF
+
+      - name: Run clang-tidy over the core
+        run: |
+          clang-tidy --version
+          clang-tidy -p build/ci --quiet src/core/src/*.cpp
+
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            os: ubuntu-24.04
+            qt: '6.8.3'
+          - name: Windows
+            os: windows-latest
+            qt: '6.8.3'
+          # macOS cannot use the 6.8 LTS here. Apple removed the AGL framework
+          # in the macOS 15 SDK, Qt referenced it until 6.8.4 and 6.9.2
+          # (QTBUG-137687), and the open-source 6.8 series stops at 6.8.3 --
+          # 6.8.4 onwards are commercial-only patch releases, so aqtinstall
+          # cannot fetch a fixed 6.8. Without this the link fails with
+          # "ld: framework 'AGL' not found".
+          #
+          # The CMake floor stays at 6.8: that is a source-compatibility
+          # statement, and Linux and Windows still build against it.
+          - name: macOS
+            os: macos-latest
+            qt: '6.9.3'
+          # One leg on a newer Qt catches deprecations before they become an
+          # upgrade cliff. Pinned rather than floating, so a new Qt release
+          # cannot turn a green branch red on its own.
+          - name: Linux (Qt 6.9)
+            os: ubuntu-24.04
+            qt: '6.9.3'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      # The Ninja generator needs the MSVC environment on the PATH; the action
+      # exports it for every later step in the job.
+      - name: Set up MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+
+      # Qt Svg is not listed here: in Qt 6 it ships inside the base desktop
+      # package rather than as an add-on, and naming it as a module makes
+      # aqtinstall fail with "the packages ['qtsvg'] were not found".
+      # Confirmed against `aqt list-qt linux desktop --modules 6.8.3
+      # linux_gcc_64`, which lists no svg entry.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: ${{ matrix.qt }}
+          cache: true
+
+      # The Qt module ships an X server-less platform plugin, but on Linux it
+      # still needs the system libraries the plugin links against.
+      - name: Install Linux platform libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1-mesa-dev libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0
+
+      - name: Configure
+        run: cmake --preset ci
+
+      # The ci preset sets CINES_WERROR, so any new warning fails here.
+      - name: Build
+        run: cmake --build --preset ci
+
+      # The interface tests set the offscreen platform themselves, so they run
+      # the same way here as they do on a developer's machine.
+      - name: Test
+        run: ctest --preset ci
+
+  # Square::None is -1, and it is a legitimate return from makeSquare,
+  # Board::kingSquare and Position::enPassantTarget. Subscripting a 64-entry
+  # array with it reads far outside the array, and an assert only catches that
+  # in a build with assertions on. This job is what makes the whole class of
+  # mistake fail loudly rather than quietly.
+  sanitizers:
+    name: Sanitizers (address + UB)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      # Core only. The rules are where a bad index would do real damage, and
+      # leaving Qt out keeps this job free of the allocator noise a large
+      # framework contributes to a leak report.
+      - name: Build and test with sanitizers
+        env:
+          CC: clang
+          CXX: clang++
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: |
+          cmake --preset ci-asan -DCINES_BUILD_APP=OFF
+          cmake --build --preset ci-asan
+          ctest --preset ci-asan
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: lukka/get-cmake@fffaaafeea488556c2c12dad60690008bc1caacb # v4.4.2
+
+      - name: Install gcovr
+        run: pipx install "gcovr==8.6"
+
+      # Only the rules library is measured, so the application is not built
+      # here and Qt is not installed.
+      - name: Build and test with coverage
+        run: |
+          cmake --preset ci-coverage -DCINES_BUILD_APP=OFF
+          cmake --build --preset ci-coverage
+          ctest --preset ci-coverage
+
+      # Only the rules library is measured. Test code and the fetched
+      # googletest sources would otherwise dominate the number and hide it.
+      - name: Generate report
+        run: |
+          gcovr --root . --filter 'src/core/' \
+            --exclude-unreachable-branches \
+            --print-summary --xml coverage.xml
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
