@@ -211,9 +211,9 @@ void MainWindow::showAbout()
     QMessageBox::about(this, tr("About CINES"),
         tr("<h3>CINES %1</h3>"
            "<p>Two player chess.</p>"
-           "<p>Free software under the GNU General Public License, version 3 "
-           "or later. Originally written in 2012 by Sagar Rakshe, Nisarg Patel, "
-           "Sanket Sudake and Nikhil Pachpande.</p>")
+           "<p>Free software under the Apache License, Version 2.0.</p>"
+           "<p>Begun in 2012 by Sagar Rakshe, Nisarg Patel, Sanket Sudake and "
+           "Nikhil Pachpande; rewritten in 2026.</p>")
             .arg(QCoreApplication::applicationVersion()));
 }
 

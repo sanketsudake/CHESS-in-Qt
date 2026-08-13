@@ -140,7 +140,7 @@ jobs:
           chmod +x .deploy-tools/linuxdeploy .deploy-tools/linuxdeploy-plugin-qt
           export PATH="$PWD/.deploy-tools:$PATH"
 
-          cp LICENSE COPYING AppDir/
+          cp LICENSE NOTICE AppDir/
 
           # No rename afterwards: the appimage plugin reads $OUTPUT and writes
           # exactly that name. Renaming it was renaming a file onto itself,
@@ -189,7 +189,7 @@ jobs:
         run: |
           mkdir -p "$NAME"
           cp build/release/src/app/cines.exe "$NAME/"
-          cp LICENSE COPYING "$NAME/"
+          cp LICENSE NOTICE "$NAME/"
           windeployqt --release --no-translations --no-system-d3d-compiler "$NAME/cines.exe"
           7z a "$NAME.zip" "$NAME"
 
@@ -235,7 +235,7 @@ jobs:
           NAME: CINES-${{ needs.version.outputs.version }}-macos-universal
         run: |
           macdeployqt "$APP"
-          cp LICENSE COPYING "$APP/Contents/Resources/"
+          cp LICENSE NOTICE "$APP/Contents/Resources/"
 
           # Ad hoc: there is no Apple Developer ID for this project. It gives
           # a consistent signature rather than a trusted one, which is what
