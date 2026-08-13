@@ -55,7 +55,8 @@ target_link_libraries(cines_app PUBLIC
 target_link_libraries(cines_app PRIVATE cines_warnings)
 
 target_compile_definitions(cines_app PUBLIC
-  CINES_VERSION_STRING="${PROJECT_VERSION}"
+  # The full string, so an rc build says so in its About box.
+  CINES_VERSION_STRING="${CINES_VERSION}"
   # Catches string literals implicitly converted to QString, which is an
   # allocation per call that the compiler can point out for free.
   QT_NO_CAST_FROM_ASCII

@@ -8,8 +8,17 @@ if(NOT DEFINED CINES_VERSION)
   set(CINES_VERSION "0.0.0")
 endif()
 
+# A release can be tagged v1.2.3-rc1, but project(VERSION) accepts digits and
+# dots and nothing else -- a suffix makes it a hard configure error. So the
+# full string is kept for anything a person reads, and project() is handed the
+# numeric part.
+string(REGEX MATCH "^[0-9]+(\\.[0-9]+)*" CINES_NUMERIC_VERSION "${CINES_VERSION}")
+if(NOT CINES_NUMERIC_VERSION)
+  set(CINES_NUMERIC_VERSION "0.0.0")
+endif()
+
 project(Cines
-  VERSION ${CINES_VERSION}
+  VERSION ${CINES_NUMERIC_VERSION}
   DESCRIPTION "CINES - a two player chess game"
   HOMEPAGE_URL "https://github.com/sanketsudake/CHESS-in-Qt"
   LANGUAGES CXX)
