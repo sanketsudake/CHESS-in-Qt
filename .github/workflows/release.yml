@@ -35,6 +35,8 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           INPUT_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
+
           if [ -n "$INPUT_VERSION" ]; then
             version="$INPUT_VERSION"
           else
@@ -43,13 +45,23 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
           # A version with a suffix -- rc, beta, alpha -- is a pre-release.
-          # This is what keeps a trial tag from replacing the cask that real
-          # users install.
-          if printf '%s' "$version" | grep -qE '-(rc|beta|alpha)'; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
+          # This is what keeps a trial tag from replacing the cask real users
+          # install, so it must not be able to fail open.
+          #
+          # It is a case statement rather than a grep because the obvious grep
+          # for this does not work: the pattern '-(rc|beta|alpha)' begins with
+          # a dash, so grep reads it as an option, errors, and returns
+          # non-zero -- which is indistinguishable from "no match". A
+          # pre-release was published as a full release, and the cask was
+          # updated, before that was noticed. Shell pattern matching cannot
+          # misread its own argument.
+          case "$version" in
+            *-rc*|*-beta*|*-alpha*) prerelease=true ;;
+            *)                      prerelease=false ;;
+          esac
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+          echo "version=$version prerelease=$prerelease"
 
   # Tagging does not prove the commit was ever tested -- a tag can be pushed at
   # any commit, including one whose CI never ran or went red. The three
