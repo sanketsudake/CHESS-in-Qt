@@ -4,6 +4,7 @@
 #include "Theme.hpp"
 #include "chess/Types.hpp"
 
+#include <QBrush>
 #include <QGraphicsScene>
 #include <QHash>
 #include <QList>
@@ -82,6 +83,7 @@ private:
     void buildSquares();
     void buildCoordinates();
     void updateSquareColours();
+    [[nodiscard]] static QBrush squareBrush(const QColor& base, const QRectF& rect);
     void updateCoordinates();
     void updateLastMoveHighlight();
     void updateCheckHighlight();

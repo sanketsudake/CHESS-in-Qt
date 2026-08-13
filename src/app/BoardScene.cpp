@@ -10,6 +10,7 @@
 #include <QGraphicsRectItem>
 #include <QGraphicsSimpleTextItem>
 #include <QGraphicsSvgItem>
+#include <QLinearGradient>
 #include <QPen>
 #include <QPropertyAnimation>
 #include <QSvgRenderer>
@@ -80,12 +81,26 @@ void BoardScene::buildSquares()
     updateSquareColours();
 }
 
+// A square is filled with a gentle vertical gradient rather than a flat
+// colour, so the board catches the same light the pieces do. Kept subtle: at
+// eight percent either side of the base colour it reads as depth, and much
+// more than that reads as a gradient someone was pleased with.
+QBrush BoardScene::squareBrush(const QColor& base, const QRectF& rect)
+{
+    QLinearGradient gradient(rect.topLeft(), rect.bottomLeft());
+    gradient.setColorAt(0.0, base.lighter(108));
+    gradient.setColorAt(1.0, base.darker(106));
+    return {gradient};
+}
+
 void BoardScene::updateSquareColours()
 {
     for (auto it = squareItems_.constBegin(); it != squareItems_.constEnd(); ++it) {
         const auto square = static_cast<chess::Square>(it.key());
-        it.value()->setRect(geometry::squareRect(square, flipped_));
-        it.value()->setBrush(chess::isLightSquare(square) ? theme_.lightSquare : theme_.darkSquare);
+        const QRectF rect = geometry::squareRect(square, flipped_);
+        it.value()->setRect(rect);
+        it.value()->setBrush(
+            squareBrush(chess::isLightSquare(square) ? theme_.lightSquare : theme_.darkSquare, rect));
     }
 }
 
