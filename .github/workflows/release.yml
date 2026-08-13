@@ -129,17 +129,18 @@ jobs:
           export PATH="$PWD/.deploy-tools:$PATH"
 
           cp LICENSE COPYING AppDir/
+
+          # No rename afterwards: the appimage plugin reads $OUTPUT and writes
+          # exactly that name. Renaming it was renaming a file onto itself,
+          # which is an error -- and the first attempt hid that behind
+          # 2>/dev/null and then moved the wrong files.
           linuxdeploy --appdir AppDir --plugin qt --output appimage
 
-          # linuxdeploy names the output after the desktop entry, which is
-          # lower case where the bundle is not, so the file is found rather
-          # than assumed. Failing loudly beats renaming the wrong thing.
-          produced=$(find . -maxdepth 1 -name '*.AppImage' -print -quit)
-          if [ -z "$produced" ]; then
-            echo "linuxdeploy reported success but produced no AppImage" >&2
+          if [ ! -f "$OUTPUT" ]; then
+            echo "linuxdeploy reported success but $OUTPUT is not there:" >&2
+            ls -la ./*.AppImage >&2 || true
             exit 1
           fi
-          mv "$produced" "$OUTPUT"
           ls -la "$OUTPUT"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
