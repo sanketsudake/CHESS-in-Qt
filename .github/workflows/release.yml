@@ -113,13 +113,34 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: 1
           OUTPUT: CINES-${{ needs.version.outputs.version }}-x86_64.AppImage
         run: |
-          curl -fsSLO https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          curl -fsSLO https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
-          chmod +x linuxdeploy*.AppImage
+          set -euo pipefail
+
+          # The tools are themselves AppImages, so they live in their own
+          # directory -- left beside the output they would be picked up by any
+          # glob looking for the AppImage that was just built. The plugin has
+          # to be named exactly linuxdeploy-plugin-qt on PATH for --plugin qt
+          # to find it.
+          mkdir -p .deploy-tools
+          curl -fsSL -o .deploy-tools/linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          curl -fsSL -o .deploy-tools/linuxdeploy-plugin-qt \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x .deploy-tools/linuxdeploy .deploy-tools/linuxdeploy-plugin-qt
+          export PATH="$PWD/.deploy-tools:$PATH"
 
           cp LICENSE COPYING AppDir/
-          ./linuxdeploy-x86_64.AppImage --appdir AppDir --plugin qt --output appimage
-          mv CINES*.AppImage "$OUTPUT" 2>/dev/null || mv ./*.AppImage "$OUTPUT"
+          linuxdeploy --appdir AppDir --plugin qt --output appimage
+
+          # linuxdeploy names the output after the desktop entry, which is
+          # lower case where the bundle is not, so the file is found rather
+          # than assumed. Failing loudly beats renaming the wrong thing.
+          produced=$(find . -maxdepth 1 -name '*.AppImage' -print -quit)
+          if [ -z "$produced" ]; then
+            echo "linuxdeploy reported success but produced no AppImage" >&2
+            exit 1
+          fi
+          mv "$produced" "$OUTPUT"
+          ls -la "$OUTPUT"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
