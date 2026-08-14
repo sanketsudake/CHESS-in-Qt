@@ -50,28 +50,47 @@ BODIES: dict[str, str] = {
         '<path d="M 19.5 23 L 17.5 44.5 L 46.5 44.5 L 44.5 23 Z"/>'
         '<path d="M 19 30 L 45 30" stroke-width="1.6" fill="none"/>'
     ),
-    # A horse in profile facing right: chest, neck, mane, ear, brow, muzzle,
-    # jaw. The muzzle has to project forward and the jaw cut back under it, or
-    # the head reads as a bird.
+    # A horse in profile facing right.
+    #
+    # Three things make it read as a horse rather than a cat, and all three
+    # were arrived at by rendering and looking:
+    #
+    #   The jaw cuts back and UP from the muzzle before the throat drops away,
+    #   leaving a concave notch under the head. Without that notch the head
+    #   merges into the neck and the piece looks like an animal with no chin.
+    #
+    #   The mane is a wavy ridge down the back of the neck, not a spike. Two
+    #   spikes at the top -- a crest and an ear -- read as a pair of cat ears
+    #   however they are shaped.
+    #
+    #   The head slopes forward, so the muzzle ends low and well forward
+    #   rather than sitting upright on the neck.
     "knight": (
-        '<path d="M 23.5 44.5 '
-        "C 22.5 36.5 24.5 30 30 25.5 "
-        "C 26.5 24.5 24.5 21.5 24.5 18.5 "
-        "L 28 14.5 "
-        "C 29 10.5 32 6.5 35.5 5.5 "
-        "L 34.5 1.8 L 39.5 6 "
-        "C 44.5 7.8 48.5 12.5 49.5 18.5 "
-        "C 50.5 24.5 48.5 29.5 44.5 31.5 "
-        "L 40 33 "
-        "C 38 34 37.5 35.5 38 37.5 "
-        "C 38.5 40.5 39.5 42.5 40 44.5 "
+        '<path d="M 20 44.5 '
+        # Back of the neck, rising.
+        "C 19.5 37 20.5 30 23 25.5 "
+        # The mane, as a wave rather than a point.
+        "C 21 22 22.5 18 21.5 14 "
+        "C 22.5 10.5 24 8 26.5 6.5 "
+        # One ear, small and set back. A tall central spike reads as a horn.
+        "L 28 2 L 32 8 "
+        # Forehead sloping down and forward to the brow.
+        "C 40 9.5 47.5 14.5 51.5 22 "
+        # Bridge of the nose, down to the blunt front of the muzzle.
+        "C 53.5 26 53 29 51 30.5 "
+        "L 44.5 33.5 "
+        # Jaw cutting back and up to the cheek: the notch. The cheek sits low
+        # and full, which is what gives the head its weight.
+        "C 41 33.5 38.5 31.5 38 28.5 "
+        # Throat falling away from the cheek down to the chest.
+        "C 37 32 38 39 39.5 44.5 "
         'Z"/>'
-        # Mane, eye and nostril in the outline colour so they read on either
-        # piece without a second gradient.
-        '<path d="M 29.5 13 C 31.5 16.5 32 20 31 23.5" '
-        'stroke="{accent}" stroke-width="1.6" fill="none"/>'
-        '<circle cx="38.5" cy="15" r="1.9" fill="{accent}" stroke="none"/>'
-        '<circle cx="45.5" cy="27.5" r="1.4" fill="{accent}" stroke="none"/>'
+        # Mane grooves, eye and nostril in the outline colour, so they read on
+        # either piece without needing a second gradient.
+        '<path d="M 23 16 L 27 18 M 23.5 21.5 L 27.5 23.5" '
+        'stroke="{accent}" stroke-width="1.5" fill="none"/>'
+        '<circle cx="41" cy="17" r="2" fill="{accent}" stroke="none"/>'
+        '<circle cx="48.5" cy="28" r="1.3" fill="{accent}" stroke="none"/>'
     ),
     # A mitre with the diagonal cut that tells a bishop from anything else.
     "bishop": (
