@@ -50,47 +50,52 @@ BODIES: dict[str, str] = {
         '<path d="M 19.5 23 L 17.5 44.5 L 46.5 44.5 L 44.5 23 Z"/>'
         '<path d="M 19 30 L 45 30" stroke-width="1.6" fill="none"/>'
     ),
-    # A horse in profile facing right.
+    # A horse in profile facing left, in the Staunton pattern the piece has
+    # had since 1849.
     #
-    # Three things make it read as a horse rather than a cat, and all three
-    # were arrived at by rendering and looking:
+    # Four things carry the resemblance, and the drawing is worth nothing
+    # without them:
     #
-    #   The jaw cuts back and UP from the muzzle before the throat drops away,
-    #   leaving a concave notch under the head. Without that notch the head
-    #   merges into the neck and the piece looks like an animal with no chin.
+    #   The head is large -- roughly half the piece above the collar. A small
+    #   head on a thick neck reads as a dog.
     #
-    #   The mane is a wavy ridge down the back of the neck, not a spike. Two
-    #   spikes at the top -- a crest and an ear -- read as a pair of cat ears
-    #   however they are shaped.
+    #   The muzzle is long and blunt, squared off at the front, and drops well
+    #   below the eye. A muzzle that tapers to a point reads as a fox.
     #
-    #   The head slopes forward, so the muzzle ends low and well forward
-    #   rather than sitting upright on the neck.
+    #   The jaw is one long sweep from under the muzzle back to the throat,
+    #   not a small notch, which is what gives the head its weight.
+    #
+    #   The mane is a row of separate angled segments down the back edge. It
+    #   is the most recognisable knight cue there is, and no amount of work on
+    #   the head makes up for leaving it out.
     "knight": (
-        '<path d="M 20 44.5 '
-        # Back of the neck, rising.
-        "C 19.5 37 20.5 30 23 25.5 "
-        # The mane, as a wave rather than a point.
-        "C 21 22 22.5 18 21.5 14 "
-        "C 22.5 10.5 24 8 26.5 6.5 "
-        # One ear, small and set back. A tall central spike reads as a horn.
-        "L 28 2 L 32 8 "
-        # Forehead sloping down and forward to the brow.
-        "C 40 9.5 47.5 14.5 51.5 22 "
-        # Bridge of the nose, down to the blunt front of the muzzle.
-        "C 53.5 26 53 29 51 30.5 "
-        "L 44.5 33.5 "
-        # Jaw cutting back and up to the cheek: the notch. The cheek sits low
-        # and full, which is what gives the head its weight.
-        "C 41 33.5 38.5 31.5 38 28.5 "
-        # Throat falling away from the cheek down to the chest.
-        "C 37 32 38 39 39.5 44.5 "
+        '<path d="M 23 44.5 '
+        # Throat rising from the chest to the cheek.
+        "C 23.5 39 24.5 35 27 32.5 "
+        # The long jaw sweeping forward under the head.
+        "C 21.5 34.5 15 34.5 11 32.5 "
+        # Blunt front of the muzzle.
+        "L 7 29 L 8.5 21.5 "
+        # Bridge of the nose rising back towards the brow.
+        "C 10.5 17.5 14.5 14 18.5 12 "
+        "C 20 10.5 21.5 9.5 23 8.5 "
+        # One ear.
+        "L 24 2 L 29.5 9 "
+        # Back of the head running into the mane.
+        "C 34.5 9 39.5 12.5 42.5 17.5 "
+        # The mane down the back of the neck.
+        "C 45.5 23 47 29.5 46.5 35 "
+        "C 46 39 44.5 42 44 44.5 "
         'Z"/>'
-        # Mane grooves, eye and nostril in the outline colour, so they read on
-        # either piece without needing a second gradient.
-        '<path d="M 23 16 L 27 18 M 23.5 21.5 L 27.5 23.5" '
-        'stroke="{accent}" stroke-width="1.5" fill="none"/>'
-        '<circle cx="41" cy="17" r="2" fill="{accent}" stroke="none"/>'
-        '<circle cx="48.5" cy="28" r="1.3" fill="{accent}" stroke="none"/>'
+        # The mane segments, the eye, the nostril and the mouth, all in the
+        # outline colour so they read on either piece.
+        '<path d="M 41.5 15.5 L 36.5 18.5 M 44 21 L 38.5 23.5 '
+        'M 45.5 27 L 40 29 M 46 33 L 40.5 34.5" '
+        'stroke="{accent}" stroke-width="1.6" fill="none"/>'
+        '<path d="M 12 31 C 15.5 29.5 18.5 29 21.5 29.5" '
+        'stroke="{accent}" stroke-width="1.4" fill="none"/>'
+        '<circle cx="17" cy="19.5" r="2.1" fill="{accent}" stroke="none"/>'
+        '<circle cx="10" cy="27" r="1.1" fill="{accent}" stroke="none"/>'
     ),
     # A mitre with the diagonal cut that tells a bishop from anything else.
     "bishop": (
