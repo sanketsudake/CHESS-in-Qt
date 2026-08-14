@@ -8,23 +8,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"
      viewBox="0 0 64 64">
   <defs>
-    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="0.55" stop-color="#F4F2EC"/>
-      <stop offset="1" stop-color="#D8D4C8"/>
+    <linearGradient id="round" gradientUnits="userSpaceOnUse"
+                    x1="9" y1="0" x2="55" y2="0">
+      <stop offset="0" stop-color="#B7B1A0"/>
+      <stop offset="0.27" stop-color="#FEFDF9"/>
+      <stop offset="0.52" stop-color="#EFEBE0"/>
+      <stop offset="0.78" stop-color="#D6D0C0"/>
+      <stop offset="1" stop-color="#B7B1A0"/>
     </linearGradient>
-    <radialGradient id="sheen" cx="0.34" cy="0.26" r="0.42">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    <linearGradient id="ground" gradientUnits="userSpaceOnUse"
+                    x1="0" y1="4" x2="0" y2="58">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.66" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.24"/>
+    </linearGradient>
+    <radialGradient id="spec" gradientUnits="userSpaceOnUse"
+                    cx="23" cy="17" r="19">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.58"/>
+      <stop offset="0.75" stop-color="#FFFFFF" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <g fill="url(#body)" stroke="#191B1D" stroke-width="2.4"
-     stroke-linejoin="round" stroke-linecap="round">
-    <path d="M 23 44.5 C 23.5 39 24.5 35 27 32.5 C 21.5 34.5 15 34.5 11 32.5 L 7 29 L 8.5 21.5 C 10.5 17.5 14.5 14 18.5 12 C 20 10.5 21.5 9.5 23 8.5 L 24 2 L 29.5 9 C 34.5 9 39.5 12.5 42.5 17.5 C 45.5 23 47 29.5 46.5 35 C 46 39 44.5 42 44 44.5 Z"/><path d="M 41.5 15.5 L 36.5 18.5 M 44 21 L 38.5 23.5 M 45.5 27 L 40 29 M 46 33 L 40.5 34.5" stroke="#191B1D" stroke-width="1.6" fill="none"/><path d="M 12 31 C 15.5 29.5 18.5 29 21.5 29.5" stroke="#191B1D" stroke-width="1.4" fill="none"/><circle cx="17" cy="19.5" r="2.1" fill="#191B1D" stroke="none"/><circle cx="10" cy="27" r="1.1" fill="#191B1D" stroke="none"/>
-    <path d="M 17.5 50 L 46.5 50 L 43.5 44.5 L 20.5 44.5 Z"/>
-    <path d="M 12.5 57.5 L 51.5 57.5 L 47.5 50 L 16.5 50 Z"/>
-  </g>
-  <g fill="url(#sheen)" stroke="none" pointer-events="none">
-    <path d="M 23 44.5 C 23.5 39 24.5 35 27 32.5 C 21.5 34.5 15 34.5 11 32.5 L 7 29 L 8.5 21.5 C 10.5 17.5 14.5 14 18.5 12 C 20 10.5 21.5 9.5 23 8.5 L 24 2 L 29.5 9 C 34.5 9 39.5 12.5 42.5 17.5 C 45.5 23 47 29.5 46.5 35 C 46 39 44.5 42 44 44.5 Z"/><path d="M 41.5 15.5 L 36.5 18.5 M 44 21 L 38.5 23.5 M 45.5 27 L 40 29 M 46 33 L 40.5 34.5"   /><path d="M 12 31 C 15.5 29.5 18.5 29 21.5 29.5"  stroke-width="1.4" /><circle cx="17" cy="19.5" r="2.1"  /><circle cx="10" cy="27" r="1.1"  />
-  </g>
+
+  <!-- Roundness and outline. -->
+  <g fill="url(#round)" stroke="#191B1D" stroke-width="2.4"
+     stroke-linejoin="round" stroke-linecap="round"><path d="M 11.5 58 L 52.5 58 L 52.5 55.4 C 52.5 52.6 49.6 50.6 45.6 50.5 L 18.4 50.5 C 14.4 50.6 11.5 52.6 11.5 55.4 Z"/><path d="M 17.5 50.5 C 18 46.8 21 44 25.3 43.8 L 38.7 43.8 C 43 44 46 46.8 46.5 50.5 Z"/><path d="M 23 43.8 C 23.5 38.5 24.5 34.6 27 32.2 C 21.5 34.2 15 34.2 11 32.2 L 7 28.8 L 8.5 21.4 C 10.5 17.5 14.5 14 18.5 12 C 20 10.6 21.5 9.6 23 8.6 L 24 2.2 L 29.5 9 C 34.5 9 39.5 12.4 42.5 17.4 C 45.5 22.8 47 29.2 46.5 34.6 C 46 38.5 44.5 41.6 44 43.8 Z"/></g>
+  <!-- Sit it on its foot. -->
+  <g fill="url(#ground)" stroke="none"><path d="M 11.5 58 L 52.5 58 L 52.5 55.4 C 52.5 52.6 49.6 50.6 45.6 50.5 L 18.4 50.5 C 14.4 50.6 11.5 52.6 11.5 55.4 Z"/><path d="M 17.5 50.5 C 18 46.8 21 44 25.3 43.8 L 38.7 43.8 C 43 44 46 46.8 46.5 50.5 Z"/><path d="M 23 43.8 C 23.5 38.5 24.5 34.6 27 32.2 C 21.5 34.2 15 34.2 11 32.2 L 7 28.8 L 8.5 21.4 C 10.5 17.5 14.5 14 18.5 12 C 20 10.6 21.5 9.6 23 8.6 L 24 2.2 L 29.5 9 C 34.5 9 39.5 12.4 42.5 17.4 C 45.5 22.8 47 29.2 46.5 34.6 C 46 38.5 44.5 41.6 44 43.8 Z"/></g>
+  <!-- Catch the light. -->
+  <g fill="url(#spec)" stroke="none"><path d="M 11.5 58 L 52.5 58 L 52.5 55.4 C 52.5 52.6 49.6 50.6 45.6 50.5 L 18.4 50.5 C 14.4 50.6 11.5 52.6 11.5 55.4 Z"/><path d="M 17.5 50.5 C 18 46.8 21 44 25.3 43.8 L 38.7 43.8 C 43 44 46 46.8 46.5 50.5 Z"/><path d="M 23 43.8 C 23.5 38.5 24.5 34.6 27 32.2 C 21.5 34.2 15 34.2 11 32.2 L 7 28.8 L 8.5 21.4 C 10.5 17.5 14.5 14 18.5 12 C 20 10.6 21.5 9.6 23 8.6 L 24 2.2 L 29.5 9 C 34.5 9 39.5 12.4 42.5 17.4 C 45.5 22.8 47 29.2 46.5 34.6 C 46 38.5 44.5 41.6 44 43.8 Z"/></g>
+  <!-- Turned lines and features. -->
+  <g><path d="M 14.5 54.3 L 49.5 54.3" stroke="#191B1D" stroke-width="1.2" fill="none" opacity="0.45"/><path d="M 41.5 15.4 L 36.6 18.4 M 44 20.8 L 38.6 23.3 M 45.5 26.7 L 40.1 28.7 M 46 32.6 L 40.6 34.1" stroke="#191B1D" stroke-width="1.6" fill="none"/><path d="M 12 30.8 C 15.5 29.4 18.5 28.9 21.5 29.4" stroke="#191B1D" stroke-width="1.4" fill="none"/><circle cx="17" cy="19.4" r="2.1" fill="#191B1D" stroke="none"/><circle cx="10" cy="26.8" r="1.1" fill="#191B1D" stroke="none"/></g>
 </svg>
