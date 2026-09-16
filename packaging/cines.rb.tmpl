@@ -1,5 +1,7 @@
-# Template for the Homebrew cask. The release workflow substitutes @VERSION@,
-# @DMG_NAME@ and @SHA256@ and pushes the result to sanketsudake/homebrew-tap.
+# Template for the Homebrew cask. The release workflow fills in the version and
+# the disk image checksum, then pushes the result to sanketsudake/homebrew-tap.
+# The placeholders are not named here on purpose: the workflow substitutes them
+# globally, so naming one turns this comment into nonsense.
 #
 # One url rather than on_intel/on_arm blocks, because the disk image holds a
 # universal binary.
@@ -7,7 +9,7 @@ cask "cines" do
   version "@VERSION@"
   sha256 "@SHA256@"
 
-  url "https://github.com/sanketsudake/CHESS-in-Qt/releases/download/v#{version}/@DMG_NAME@"
+  url "https://github.com/sanketsudake/CHESS-in-Qt/releases/download/v#{version}/CINES-#{version}-macos-universal.dmg"
   name "CINES"
   desc "Two player chess"
   homepage "https://github.com/sanketsudake/CHESS-in-Qt"
@@ -25,10 +27,13 @@ cask "cines" do
   # under quarantine and refuses to open it. Homebrew installs are explicit
   # enough to clear that; a direct download is not, which is why the release
   # notes tell those users to right-click and Open instead.
-  postflight do
-    if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
-      system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{appdir}/CINES.app"]
-    end
+  #
+  # must_succeed: false keeps the old `system_command` tolerance -- xattr exits
+  # non-zero when the path is missing, and that should not fail an install.
+  postflight_steps do
+    run "/usr/bin/xattr",
+        args:         ["-dr", "com.apple.quarantine", "{{appdir}}/CINES.app"],
+        must_succeed: false
   end
 
   zap trash: [

@@ -337,8 +337,16 @@ jobs:
           DMG_NAME: ${{ needs.publish.outputs.dmg_name }}
           DMG_SHA256: ${{ needs.publish.outputs.dmg_sha256 }}
         run: |
+          # The cask builds the download name from #{version}, so a hand edit of
+          # `version` alone cannot 404. That only holds while the disk image is
+          # named to the convention, which is what this checks.
+          expected="CINES-$VERSION-macos-universal.dmg"
+          if [ "$DMG_NAME" != "$expected" ]; then
+            echo "::error::disk image is $DMG_NAME, but the cask template expects $expected"
+            exit 1
+          fi
+
           sed -e "s|@VERSION@|$VERSION|g" \
-              -e "s|@DMG_NAME@|$DMG_NAME|g" \
               -e "s|@SHA256@|$DMG_SHA256|g" \
               packaging/cines.rb.tmpl > tap/Casks/cines.rb
           cat tap/Casks/cines.rb
